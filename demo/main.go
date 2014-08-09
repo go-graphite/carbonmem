@@ -180,6 +180,6 @@ func main() {
 	http.HandleFunc("/metrics/find/", findHandler)
 	http.HandleFunc("/render/", renderHandler)
 
-	log.Println("http server starting on port", port)
+	log.Println("http server starting on port", *port)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
 }
