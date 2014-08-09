@@ -34,6 +34,9 @@ func NewWhisper(t0 int32, cap int) *Whisper {
 
 func (w *Whisper) Incr(t int32, metric string, val uint64) {
 
+	w.Lock()
+	defer w.Unlock()
+
 	// based on github.com/dgryski/go-timewindow
 
 	if t == w.t0 {
@@ -113,6 +116,9 @@ type Fetched struct {
 
 func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 
+	w.Lock()
+	defer w.Unlock()
+
 	if from > w.t0 {
 		return nil
 	}
@@ -166,6 +172,9 @@ type Glob struct {
 // TODO(dgryski): only does prefix matching for the moment
 
 func (w *Whisper) Find(target string) []Glob {
+
+	w.Lock()
+	defer w.Unlock()
 
 	var response []Glob
 	l := len(target)
