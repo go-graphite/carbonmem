@@ -18,7 +18,7 @@ func TestMemStore(t *testing.T) {
 		expected []float64
 	}{
 		{"foo", 100, 1, 99, 103, []float64{math.NaN(), 1, math.NaN(), math.NaN(), math.NaN()}},
-		{"foo", 100, 2, 99, 103, []float64{math.NaN(), 3, math.NaN(), math.NaN(), math.NaN()}},
+		{"foo", 100, 3, 99, 103, []float64{math.NaN(), 3, math.NaN(), math.NaN(), math.NaN()}},
 		{"foo", 101, 4, 99, 103, []float64{math.NaN(), 3, 4, math.NaN(), math.NaN()}},
 		{"foo", 105, 4, 99, 105, []float64{math.NaN(), 3, 4, math.NaN(), math.NaN(), math.NaN(), 4}},
 		{"foo", 109, 9, 105, 109, []float64{4, math.NaN(), math.NaN(), math.NaN(), 9}},
@@ -33,7 +33,7 @@ func TestMemStore(t *testing.T) {
 	w := NewWhisper(100, 10)
 
 	for _, tt := range tests {
-		w.Incr(tt.t, tt.metric, tt.count)
+		w.Set(tt.t, tt.metric, tt.count)
 		if tt.expected != nil {
 			r := w.Fetch(tt.metric, tt.from, tt.until)
 			if !nearlyEqual(r.Values, tt.expected) {
@@ -76,11 +76,11 @@ func TestGlob(t *testing.T) {
 
 	w := NewWhisper(100, 10)
 
-	w.Incr(100, "carbon.relays", 1)
-	w.Incr(100, "carbon.zipper", 1)
-	w.Incr(100, "carbon.rewhatever.errors", 1)
-	w.Incr(100, "carbon.rewhatever.count", 1)
-	w.Incr(100, "carbon.notmatched", 1)
+	w.Set(100, "carbon.relays", 1)
+	w.Set(100, "carbon.zipper", 1)
+	w.Set(100, "carbon.rewhatever.errors", 1)
+	w.Set(100, "carbon.rewhatever.count", 1)
+	w.Set(100, "carbon.notmatched", 1)
 
 	var tests = []struct {
 		target string

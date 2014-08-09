@@ -32,7 +32,7 @@ func NewWhisper(t0 int32, cap int) *Whisper {
 	}
 }
 
-func (w *Whisper) Incr(t int32, metric string, val uint64) {
+func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	w.Lock()
 	defer w.Unlock()
@@ -43,13 +43,13 @@ func (w *Whisper) Incr(t int32, metric string, val uint64) {
 		m := w.epochs[w.idx]
 
 		// have we seen this metric this epoch?
-		v, ok := m[metric]
+		_, ok := m[metric]
 		if !ok {
 			// one more occurrence of this metric
 			w.known[metric]++
 		}
 
-		m[metric] = v + val
+		m[metric] = val
 		return
 	}
 
@@ -100,11 +100,11 @@ func (w *Whisper) Incr(t int32, metric string, val uint64) {
 		m = make(map[string]uint64)
 		w.epochs[idx] = m
 	}
-	v, ok := m[metric]
+	_, ok := m[metric]
 	if !ok {
 		w.known[metric]++
 	}
-	m[metric] = v + val
+	m[metric] = val
 }
 
 type Fetched struct {

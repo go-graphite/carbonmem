@@ -156,7 +156,7 @@ func main() {
 			log.Println("processed", lines)
 		}
 
-		w.Incr(int32(t), fields[1], 1)
+		w.Set(int32(t), fields[1], 1)
 	}
 
 	var m runtime.MemStats
