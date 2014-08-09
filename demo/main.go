@@ -53,8 +53,10 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	var b []byte
 	switch format {
 	case "json":
+		w.Header().Set("Content-Type", "application/json")
 		b, _ = json.Marshal(response)
 	case "protobuf":
+		w.Header().Set("Content-Type", "application/protobuf")
 		b, _ = proto.Marshal(&response)
 	}
 	w.Write(b)
@@ -107,8 +109,10 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	var b []byte
 	switch format {
 	case "json":
+		w.Header().Set("Content-Type", "application/json")
 		b, _ = json.Marshal(response)
 	case "protobuf":
+		w.Header().Set("Content-Type", "application/protobuf")
 		b, _ = proto.Marshal(&response)
 	}
 	w.Write(b)
