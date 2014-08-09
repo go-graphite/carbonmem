@@ -11,7 +11,7 @@ import (
 // Whisper is an in-memory whisper-like store
 type Whisper struct {
 	sync.Mutex
-	t0     int64
+	t0     int32
 	idx    int
 	epochs []map[string]uint64
 
@@ -20,7 +20,7 @@ type Whisper struct {
 
 }
 
-func NewWhisper(t0 int64, cap int) *Whisper {
+func NewWhisper(t0 int32, cap int) *Whisper {
 
 	epochs := make([]map[string]uint64, cap)
 	epochs[0] = make(map[string]uint64)
@@ -32,7 +32,7 @@ func NewWhisper(t0 int64, cap int) *Whisper {
 	}
 }
 
-func (w *Whisper) Incr(t int64, metric string, val uint64) {
+func (w *Whisper) Incr(t int32, metric string, val uint64) {
 
 	// based on github.com/dgryski/go-timewindow
 
@@ -105,13 +105,13 @@ func (w *Whisper) Incr(t int64, metric string, val uint64) {
 }
 
 type Fetched struct {
-	from   int64
-	until  int64
-	step   int64
-	values []float64
+	From   int32
+	Until  int32
+	Step   int32
+	Values []float64
 }
 
-func (w *Whisper) Fetch(metric string, from int64, until int64) *Fetched {
+func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 
 	if from > w.t0 {
 		return nil
@@ -125,7 +125,7 @@ func (w *Whisper) Fetch(metric string, from int64, until int64) *Fetched {
 		return nil
 	}
 
-	if min := w.t0 - int64(len(w.epochs)) + 1; from < min {
+	if min := w.t0 - int32(len(w.epochs)) + 1; from < min {
 		from = min
 	}
 
@@ -136,10 +136,10 @@ func (w *Whisper) Fetch(metric string, from int64, until int64) *Fetched {
 
 	points := until - from + 1 // inclusive of 'until'
 	r := &Fetched{
-		from:   from,
-		until:  until,
-		step:   1,
-		values: make([]float64, points),
+		From:   from,
+		Until:  until,
+		Step:   1,
+		Values: make([]float64, points),
 	}
 
 	for p, t := 0, idx; p < int(points); p, t = p+1, t+1 {
@@ -149,9 +149,9 @@ func (w *Whisper) Fetch(metric string, from int64, until int64) *Fetched {
 
 		m := w.epochs[t]
 		if v, ok := m[metric]; ok {
-			r.values[p] = float64(v)
+			r.Values[p] = float64(v)
 		} else {
-			r.values[p] = math.NaN()
+			r.Values[p] = math.NaN()
 		}
 	}
 

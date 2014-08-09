@@ -11,10 +11,10 @@ func TestMemStore(t *testing.T) {
 
 	var tests = []struct {
 		metric   string
-		t        int64
+		t        int32
 		count    uint64
-		from     int64
-		until    int64
+		from     int32
+		until    int32
 		expected []float64
 	}{
 		{"foo", 100, 1, 99, 103, []float64{math.NaN(), 1, math.NaN(), math.NaN(), math.NaN()}},
@@ -36,8 +36,8 @@ func TestMemStore(t *testing.T) {
 		w.Incr(tt.t, tt.metric, tt.count)
 		if tt.expected != nil {
 			r := w.Fetch(tt.metric, tt.from, tt.until)
-			if !nearlyEqual(r.values, tt.expected) {
-				t.Errorf("got %#v , want %#v\n", r.values, tt.expected)
+			if !nearlyEqual(r.Values, tt.expected) {
+				t.Errorf("got %#v , want %#v\n", r.Values, tt.expected)
 			}
 		}
 	}
