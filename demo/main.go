@@ -137,7 +137,7 @@ func main() {
 
 	scanner := bufio.NewScanner(f)
 
-	w := carbonmem.NewWhisper(int32(*epoch0), *wsize)
+	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize)
 
 	var lines int
 
@@ -156,7 +156,7 @@ func main() {
 			log.Println("processed", lines)
 		}
 
-		w.Set(int32(t), fields[1], 1)
+		Metrics.Set(int32(t), fields[1], 1)
 	}
 
 	var m runtime.MemStats
