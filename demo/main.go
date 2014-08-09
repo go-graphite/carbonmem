@@ -6,20 +6,18 @@ import (
 	"bufio"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"math"
+	"net"
 	"net/http"
-	"os"
-	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"code.google.com/p/goprotobuf/proto"
 
 	"github.com/dgryski/carbonmem"
 
-	"github.com/dustin/go-humanize"
 	cspb "github.com/grobian/carbonserver/carbonserverpb"
 )
 
@@ -117,55 +115,71 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func graphiteServer(port int) {
+
+	ln, e := net.Listen("tcp", ":"+strconv.Itoa(port))
+
+	if e != nil {
+		log.Fatal("listen error:", e)
+	}
+
+	log.Println("graphite server starting on port", port)
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		go func(c net.Conn) {
+			scanner := bufio.NewScanner(c)
+			for scanner.Scan() {
+				fields := strings.Fields(scanner.Text())
+				if len(fields) != 3 {
+					log.Println("error splitting line: ", scanner.Text())
+					continue
+				}
+
+				// metric count epoch
+				count, err := strconv.Atoi(fields[1])
+				if err != nil {
+					log.Printf("error parsing count %s: %s\n", fields[1], err)
+					continue
+				}
+
+				epoch, err := strconv.Atoi(fields[2])
+				if err != nil {
+					log.Printf("error parsing epoch %s: %s\n", fields[1], err)
+					continue
+				}
+
+				Metrics.Set(int32(epoch), fields[0], uint64(count))
+
+			}
+		}(conn)
+	}
+}
+
 func main() {
 
-	file := flag.String("f", "", "input file")
 	wsize := flag.Int("w", 60, "window size")
 	epoch0 := flag.Int("epoch0", 0, "epoch0")
-	port := flag.Int("p", 8001, "port to listen on")
+	port := flag.Int("p", 8001, "port to listen on (http)")
+	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
 
 	flag.Parse()
 
-	if *file == "" {
-		log.Fatal("no input file given")
+	if *epoch0 == 0 {
+		*epoch0 = int(time.Now().Unix())
 	}
-
-	f, err := os.Open(*file)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	scanner := bufio.NewScanner(f)
 
 	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize)
 
-	var lines int
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines++
-		fields := strings.Split(line, "\t")
-
-		t, err := strconv.Atoi(fields[0])
-		if err != nil {
-			log.Println("skipping ", fields[0])
-			continue
-		}
-
-		if lines%(1<<20) == 0 {
-			log.Println("processed", lines)
-		}
-
-		Metrics.Set(int32(t), fields[1], 1)
-	}
-
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	fmt.Println(humanize.Bytes(m.Alloc))
+	go graphiteServer(*gport)
 
 	http.HandleFunc("/metrics/find/", findHandler)
 	http.HandleFunc("/render/", renderHandler)
 
-	http.ListenAndServe(":"+strconv.Itoa(*port), nil)
+	log.Println("http server starting on port", port)
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
 }
