@@ -71,3 +71,41 @@ func nearlyEqual(a, b []float64) bool {
 
 	return true
 }
+
+func TestGlob(t *testing.T) {
+
+	w := NewWhisper(100, 10)
+
+	w.Incr(100, "carbon.relays", 1)
+	w.Incr(100, "carbon.zipper", 1)
+	w.Incr(100, "carbon.rewhatever.errors", 1)
+	w.Incr(100, "carbon.rewhatever.count", 1)
+	w.Incr(100, "carbon.notmatched", 1)
+
+	var tests = []struct {
+		target string
+		want   []Glob
+	}{
+		{
+			"carbon.relays",
+			[]Glob{
+				{Metric: "carbon.relays", IsLeaf: true},
+			},
+		},
+		{
+			"carbon.re",
+			[]Glob{
+				{Metric: "carbon.relays", IsLeaf: true},
+				{Metric: "carbon.rewhatever", IsLeaf: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		globs := w.Find(tt.target)
+		if len(globs) != len(tt.want) {
+			t.Errorf("Find(%v)= length %d, want %d\n", tt.target, len(globs), len(tt.want))
+			t.Logf("%#v", globs)
+		}
+	}
+}

@@ -4,6 +4,7 @@ package carbonmem
 import (
 	"math"
 
+	"strings"
 	"sync"
 )
 
@@ -13,7 +14,10 @@ type Whisper struct {
 	t0     int64
 	idx    int
 	epochs []map[string]uint64
-	known  map[string]int // metric -> #epochs it appears in
+
+	// TODO(dgryski): move this to armon/go-radix to speed up prefix matching
+	known map[string]int // metric -> #epochs it appears in
+
 }
 
 func NewWhisper(t0 int64, cap int) *Whisper {
@@ -159,6 +163,39 @@ type Glob struct {
 	IsLeaf bool
 }
 
-func (w *Whisper) Find() []Glob {
-	panic("Find: unimplemented")
+// TODO(dgryski): only does prefix matching for the moment
+
+func (w *Whisper) Find(target string) []Glob {
+
+	var response []Glob
+	l := len(target)
+	for k, _ := range w.known {
+		if strings.HasPrefix(k, target) {
+			// figure out if we're a leaf or not
+			dot := strings.IndexByte(k[l:], '.')
+			var leaf bool
+			m := k
+			if dot == -1 {
+				leaf = true
+			} else {
+				m = k[:dot+l]
+			}
+			response = appendIfUnique(response, Glob{Metric: m, IsLeaf: leaf})
+		}
+	}
+
+	return response
+}
+
+// TODO(dgryski): replace with something faster if needed
+
+func appendIfUnique(response []Glob, g Glob) []Glob {
+
+	for i := range response {
+		if response[i].Metric == g.Metric {
+			return response
+		}
+	}
+
+	return append(response, g)
 }
