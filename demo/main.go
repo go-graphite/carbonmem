@@ -75,7 +75,6 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	points := Metrics.Fetch(metric, int32(frint), int32(unint))
 
 	if points == nil {
-		log.Println("points is nil")
 		return
 	}
 
@@ -140,25 +139,21 @@ func graphiteServer(port int) {
 			for scanner.Scan() {
 				fields := strings.Fields(scanner.Text())
 				if len(fields) != 3 {
-					log.Println("error splitting line: ", scanner.Text())
 					continue
 				}
 
 				// metric count epoch
 				count, err := strconv.Atoi(fields[1])
 				if err != nil {
-					log.Printf("error parsing count %s: %s\n", fields[1], err)
 					continue
 				}
 
 				epoch, err := strconv.Atoi(fields[2])
 				if err != nil {
-					log.Printf("error parsing epoch %s: %s\n", fields[1], err)
 					continue
 				}
 
 				Metrics.Set(int32(epoch), fields[0], uint64(count))
-
 			}
 		}(conn)
 	}
