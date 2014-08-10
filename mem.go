@@ -171,15 +171,15 @@ type Glob struct {
 
 // TODO(dgryski): only does prefix matching for the moment
 
-func (w *Whisper) Find(target string) []Glob {
+func (w *Whisper) Find(query string) []Glob {
 
 	w.Lock()
 	defer w.Unlock()
 
 	var response []Glob
-	l := len(target)
+	l := len(query)
 	for k, _ := range w.known {
-		if strings.HasPrefix(k, target) {
+		if strings.HasPrefix(k, query) {
 			// figure out if we're a leaf or not
 			dot := strings.IndexByte(k[l:], '.')
 			var leaf bool

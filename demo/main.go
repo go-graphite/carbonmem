@@ -25,10 +25,10 @@ var Metrics *carbonmem.Whisper
 
 func findHandler(w http.ResponseWriter, req *http.Request) {
 
-	target := req.FormValue("target")
+	query := req.FormValue("query")
 	format := req.FormValue("format")
 
-	globs := Metrics.Find(target)
+	globs := Metrics.Find(query)
 
 	if format != "json" && format != "protobuf" {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -36,7 +36,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	response := cspb.GlobResponse{
-		Name: &target,
+		Name: &query,
 	}
 
 	var matches []*cspb.GlobMatch
