@@ -100,6 +100,12 @@ func TestGlob(t *testing.T) {
 				{Metric: "carbon.rewhatever", IsLeaf: false},
 			},
 		},
+		{
+			"carbon.z",
+			[]Glob{
+				{Metric: "carbon.zipper", IsLeaf: true},
+			},
+		},
 	}
 
 	for _, tt := range tests {
