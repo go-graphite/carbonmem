@@ -4,6 +4,7 @@ package carbonmem
 import (
 	"math"
 
+	"sort"
 	"strings"
 	"sync"
 )
@@ -169,6 +170,20 @@ type Glob struct {
 	IsLeaf bool
 }
 
+type GlobByName []Glob
+
+func (g GlobByName) Len() int {
+	return len(g)
+}
+
+func (g GlobByName) Swap(i, j int) {
+	g[i], g[j] = g[j], g[i]
+}
+
+func (g GlobByName) Less(i, j int) bool {
+	return g[i].Metric < g[j].Metric
+}
+
 // TODO(dgryski): only does prefix matching for the moment
 
 func (w *Whisper) Find(query string) []Glob {
@@ -192,6 +207,8 @@ func (w *Whisper) Find(query string) []Glob {
 			response = appendIfUnique(response, Glob{Metric: m, IsLeaf: leaf})
 		}
 	}
+
+	sort.Sort(GlobByName(response))
 
 	return response
 }
