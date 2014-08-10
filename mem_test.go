@@ -2,6 +2,7 @@ package carbonmem
 
 import (
 	"math"
+	"reflect"
 	"testing"
 )
 
@@ -103,9 +104,8 @@ func TestGlob(t *testing.T) {
 
 	for _, tt := range tests {
 		globs := w.Find(tt.target)
-		if len(globs) != len(tt.want) {
-			t.Errorf("Find(%v)= length %d, want %d\n", tt.target, len(globs), len(tt.want))
-			t.Logf("%#v", globs)
+		if !reflect.DeepEqual(globs, tt.want) {
+			t.Errorf("Find(%v)=%#v , want %#v\n", tt.target, globs, tt.want)
 		}
 	}
 }
