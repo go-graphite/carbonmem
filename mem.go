@@ -14,22 +14,24 @@ type Whisper struct {
 	sync.Mutex
 	t0     int32
 	idx    int
-	epochs []map[string]uint64
+	epochs []map[int]uint64
 
 	// TODO(dgryski): move this to armon/go-radix to speed up prefix matching
-	known map[string]int // metric -> #epochs it appears in
+	known map[int]int // metric -> #epochs it appears in
 
+	l *lookup
 }
 
 func NewWhisper(t0 int32, cap int) *Whisper {
 
-	epochs := make([]map[string]uint64, cap)
-	epochs[0] = make(map[string]uint64)
+	epochs := make([]map[int]uint64, cap)
+	epochs[0] = make(map[int]uint64)
 
 	return &Whisper{
 		t0:     t0,
 		epochs: epochs,
-		known:  make(map[string]int),
+		known:  make(map[int]int),
+		l:      newLookup(),
 	}
 }
 
@@ -41,16 +43,19 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 	// based on github.com/dgryski/go-timewindow
 
 	if t == w.t0 {
+
+		id := w.l.FindOrAdd(metric)
+
 		m := w.epochs[w.idx]
 
 		// have we seen this metric this epoch?
-		_, ok := m[metric]
+		_, ok := m[id]
 		if !ok {
 			// one more occurrence of this metric
-			w.known[metric]++
+			w.known[id]++
 		}
 
-		m[metric] = val
+		m[id] = val
 		return
 	}
 
@@ -67,17 +72,20 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 			m := w.epochs[w.idx]
 			if m != nil {
-				for k, _ := range m {
-					w.known[k]--
-					if w.known[k] == 0 {
-						delete(w.known, k)
+				for id, _ := range m {
+					w.known[id]--
+					if w.known[id] == 0 {
+						delete(w.known, id)
 					}
 				}
 				w.epochs[w.idx] = nil
 			}
 		}
-		w.known[metric]++
-		w.epochs[w.idx] = map[string]uint64{metric: val}
+
+		id := w.l.FindOrAdd(metric)
+
+		w.known[id]++
+		w.epochs[w.idx] = map[int]uint64{id: val}
 		return
 	}
 
@@ -98,14 +106,17 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	m := w.epochs[idx]
 	if m == nil {
-		m = make(map[string]uint64)
+		m = make(map[int]uint64)
 		w.epochs[idx] = m
 	}
-	_, ok := m[metric]
+
+	id := w.l.FindOrAdd(metric)
+
+	_, ok := m[id]
 	if !ok {
-		w.known[metric]++
+		w.known[id]++
 	}
-	m[metric] = val
+	m[id] = val
 }
 
 type Fetched struct {
@@ -124,7 +135,13 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		return nil
 	}
 
-	if _, ok := w.known[metric]; !ok {
+	id, ok := w.l.Find(metric)
+	if !ok {
+		// unknown metric
+		return nil
+	}
+
+	if _, ok := w.known[id]; !ok {
 		return nil
 	}
 
@@ -155,7 +172,7 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		}
 
 		m := w.epochs[t]
-		if v, ok := m[metric]; ok {
+		if v, ok := m[id]; ok {
 			r.Values[p] = float64(v)
 		} else {
 			r.Values[p] = math.NaN()
@@ -193,7 +210,8 @@ func (w *Whisper) Find(query string) []Glob {
 
 	var response []Glob
 	l := len(query)
-	for k, _ := range w.known {
+	for id, _ := range w.known {
+		k := w.l.Reverse(id)
 		if strings.HasPrefix(k, query) {
 			// figure out if we're a leaf or not
 			dot := strings.IndexByte(k[l:], '.')
@@ -224,4 +242,50 @@ func appendIfUnique(response []Glob, g Glob) []Glob {
 	}
 
 	return append(response, g)
+}
+
+type lookup struct {
+	keys    map[string]int
+	revKeys map[int]string
+	numKeys int
+}
+
+func newLookup() *lookup {
+	return &lookup{
+		keys:    make(map[string]int),
+		revKeys: make(map[int]string),
+	}
+}
+
+func (l *lookup) Find(key string) (int, bool) {
+	id, ok := l.keys[key]
+	return id, ok
+}
+
+func (l *lookup) FindOrAdd(key string) int {
+
+	id, ok := l.keys[key]
+
+	if ok {
+		return id
+	}
+
+	id = l.numKeys
+	l.numKeys++
+
+	l.keys[key] = id
+	l.revKeys[id] = key
+
+	return id
+}
+
+func (l *lookup) Reverse(id int) string {
+
+	key, ok := l.revKeys[id]
+
+	if !ok {
+		panic("looked up invalid key")
+	}
+
+	return key
 }
