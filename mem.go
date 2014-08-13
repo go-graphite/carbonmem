@@ -15,6 +15,7 @@ type Whisper struct {
 	t0     int32
 	idx    int
 	epochs []map[int]uint64
+	locks  []sync.Mutex
 
 	// TODO(dgryski): move this to armon/go-radix to speed up prefix matching
 	known map[int]int // metric -> #epochs it appears in
@@ -31,6 +32,7 @@ func NewWhisper(t0 int32, cap int) *Whisper {
 		t0:     t0,
 		epochs: epochs,
 		known:  make(map[int]int),
+		locks:  make([]sync.Mutex, cap),
 		l:      newLookup(),
 	}
 }
@@ -129,23 +131,26 @@ type Fetched struct {
 func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 
 	w.Lock()
-	defer w.Unlock()
 
 	if from > w.t0 {
+		w.Unlock()
 		return nil
 	}
 
 	id, ok := w.l.Find(metric)
 	if !ok {
 		// unknown metric
+		w.Unlock()
 		return nil
 	}
 
 	if _, ok := w.known[id]; !ok {
+		w.Unlock()
 		return nil
 	}
 
 	if until < from {
+		w.Unlock()
 		return nil
 	}
 
@@ -166,10 +171,16 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		Values: make([]float64, points),
 	}
 
+	l := len(w.epochs)
+
+	w.Unlock()
+
 	for p, t := 0, idx; p < int(points); p, t = p+1, t+1 {
-		if t >= len(w.epochs) {
+		if t >= l {
 			t = 0
 		}
+
+		w.locks[t].Lock()
 
 		m := w.epochs[t]
 		if v, ok := m[id]; ok {
@@ -177,6 +188,7 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		} else {
 			r.Values[p] = math.NaN()
 		}
+		w.locks[t].Unlock()
 	}
 
 	return r
