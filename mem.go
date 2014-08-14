@@ -199,17 +199,17 @@ type Glob struct {
 	IsLeaf bool
 }
 
-type GlobByName []Glob
+type globByName []Glob
 
-func (g GlobByName) Len() int {
+func (g globByName) Len() int {
 	return len(g)
 }
 
-func (g GlobByName) Swap(i, j int) {
+func (g globByName) Swap(i, j int) {
 	g[i], g[j] = g[j], g[i]
 }
 
-func (g GlobByName) Less(i, j int) bool {
+func (g globByName) Less(i, j int) bool {
 	return g[i].Metric < g[j].Metric
 }
 
@@ -238,7 +238,7 @@ func (w *Whisper) Find(query string) []Glob {
 		}
 	}
 
-	sort.Sort(GlobByName(response))
+	sort.Sort(globByName(response))
 
 	return response
 }
