@@ -23,12 +23,66 @@ import (
 
 var Metrics *carbonmem.Whisper
 
+func parseTopK(query string) (string, int, bool) {
+
+	// prefix.blah.TopK.10m.*
+
+	var idx int
+	if idx = strings.Index(query, ".TopK."); idx == -1 {
+		// not found
+		return "", 0, false
+	}
+
+	prefix := query[:idx+1]
+
+	timeIdx := idx + len(".TopK.")
+
+	// look for number followed by 'm' or 's'
+	unitsIdx := timeIdx
+	for unitsIdx < len(query) && '0' <= query[unitsIdx] && query[unitsIdx] <= '9' {
+		unitsIdx++
+	}
+
+	// ran off the end
+	if unitsIdx == len(query) || unitsIdx == timeIdx {
+		return "", 0, false
+	}
+
+	multiplier := 0
+	switch query[unitsIdx] {
+	case 's':
+		multiplier = 1
+	case 'm':
+		multiplier = 60
+	default:
+		// unknown units
+		return "", 0, false
+	}
+
+	if query[unitsIdx+1:] != ".*" {
+		return "", 0, false
+	}
+
+	timeUnits, err := strconv.Atoi(query[timeIdx:unitsIdx])
+	if err != nil {
+		return "", 0, false
+	}
+
+	return prefix, timeUnits * multiplier, true
+}
+
 func findHandler(w http.ResponseWriter, req *http.Request) {
 
 	query := req.FormValue("query")
 	format := req.FormValue("format")
 
-	globs := Metrics.Find(query)
+	var globs []carbonmem.Glob
+
+	if q, seconds, ok := parseTopK(query); ok {
+		globs = Metrics.TopK(q, seconds)
+	} else {
+		globs = Metrics.Find(query)
+	}
 
 	if format != "json" && format != "protobuf" {
 		http.Error(w, "bad request", http.StatusBadRequest)

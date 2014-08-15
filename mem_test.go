@@ -120,3 +120,42 @@ func TestGlob(t *testing.T) {
 		}
 	}
 }
+
+func TestTopK(t *testing.T) {
+
+	w := NewWhisper(100, 10)
+
+	w.Set(100, "carbon.rewhatever.lots", 10)
+	w.Set(100, "carbon.rewhatever.fewer", 8)
+	w.Set(105, "carbon.rewhatever.foo", 5)
+	w.Set(105, "carbon.rewhatever.bar", 4)
+	w.Set(105, "carbon.notmatched", 1)
+
+	var tests = []struct {
+		prefix  string
+		seconds int
+		globs   []Glob
+	}{
+		{"carbon.rewhatever.", 4,
+			[]Glob{
+				{Metric: "carbon.rewhatever.foo", IsLeaf: true},
+				{Metric: "carbon.rewhatever.bar", IsLeaf: true},
+			},
+		},
+		{"carbon.rewhatever.", 6,
+			[]Glob{
+				{Metric: "carbon.rewhatever.lots", IsLeaf: true},
+				{Metric: "carbon.rewhatever.fewer", IsLeaf: true},
+				{Metric: "carbon.rewhatever.foo", IsLeaf: true},
+				{Metric: "carbon.rewhatever.bar", IsLeaf: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		if g := w.TopK(tt.prefix, tt.seconds); !reflect.DeepEqual(g, tt.globs) {
+			t.Errorf("Topk(%v, %v)=%v, want %v", tt.prefix, tt.seconds, g, tt.globs)
+		}
+	}
+
+}

@@ -243,6 +243,72 @@ func (w *Whisper) Find(query string) []Glob {
 	return response
 }
 
+type keysByCount struct {
+	keys   []int
+	counts map[int]uint64
+}
+
+func (k keysByCount) Len() int {
+	return len(k.keys)
+}
+
+func (k keysByCount) Swap(i, j int) {
+	k.keys[i], k.keys[j] = k.keys[j], k.keys[i]
+}
+
+func (k keysByCount) Less(i, j int) bool {
+	// actually "GreaterThan"
+	return k.counts[k.keys[i]] > k.counts[k.keys[j]]
+}
+
+func (w *Whisper) TopK(prefix string, seconds int) []Glob {
+
+	w.Lock()
+	idx := w.idx
+	l := len(w.epochs)
+	w.Unlock()
+
+	idx -= seconds
+	if idx < 0 {
+		idx += l
+	}
+
+	// gather counts for all metrics in this time period
+	counts := make(map[int]uint64)
+	for i := 0; i <= seconds; i++ {
+		w.locks[idx].Lock()
+		m := w.epochs[idx]
+		for id, v := range m {
+			k := w.l.Reverse(id)
+			if strings.HasPrefix(k, prefix) {
+				counts[id] += v
+			}
+		}
+		w.locks[idx].Unlock()
+		idx++
+		if idx >= l {
+			idx = 0
+		}
+	}
+
+	var keys []int
+	for k, _ := range counts {
+		keys = append(keys, k)
+	}
+
+	countedKeys := keysByCount{keys: keys, counts: counts}
+
+	sort.Sort(countedKeys)
+	var response []Glob
+
+	for i := 0; i < 100 && i < countedKeys.Len(); i++ {
+		m := w.l.Reverse(countedKeys.keys[i])
+		response = append(response, Glob{Metric: m, IsLeaf: true})
+	}
+
+	return response
+}
+
 // TODO(dgryski): replace with something faster if needed
 
 func appendIfUnique(response []Glob, g Glob) []Glob {
