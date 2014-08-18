@@ -106,6 +106,19 @@ func TestGlob(t *testing.T) {
 			},
 		},
 		{
+			"carbon.re*",
+			[]Glob{
+				{Metric: "carbon.relays", IsLeaf: true},
+				{Metric: "carbon.rewhatever", IsLeaf: false},
+			},
+		},
+		{
+			"carbon.z*",
+			[]Glob{
+				{Metric: "carbon.zipper", IsLeaf: true},
+			},
+		},
+		{
 			"carbon.z",
 			[]Glob{
 				{Metric: "carbon.zipper", IsLeaf: true},

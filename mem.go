@@ -220,6 +220,8 @@ func (w *Whisper) Find(query string) []Glob {
 	w.Lock()
 	defer w.Unlock()
 
+	query = strings.TrimSuffix(query, "*")
+
 	var response []Glob
 	l := len(query)
 	for id, _ := range w.known {
