@@ -270,14 +270,14 @@ func (w *Whisper) TopK(prefix string, seconds int) []Glob {
 	l := len(w.epochs)
 	w.Unlock()
 
-	idx -= seconds
+	idx -= (seconds - 1)
 	if idx < 0 {
 		idx += l
 	}
 
 	// gather counts for all metrics in this time period
 	counts := make(map[int]uint64)
-	for i := 0; i <= seconds; i++ {
+	for i := 0; i < seconds; i++ {
 		w.locks[idx].Lock()
 		m := w.epochs[idx]
 		for id, v := range m {
