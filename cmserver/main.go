@@ -23,7 +23,7 @@ import (
 
 var Metrics *carbonmem.Whisper
 
-func parseTopK(query string) (string, int, string, bool) {
+func parseTopK(query string) (string, int32, string, bool) {
 
 	// prefix.blah.TopK.10m.*   => "prefix.blah.", 600, "*", true
 
@@ -70,7 +70,7 @@ func parseTopK(query string) (string, int, string, bool) {
 		return "", 0, "", false
 	}
 
-	return prefix, timeUnits * multiplier, metric[1:], true
+	return prefix, int32(timeUnits * multiplier), metric[1:], true
 }
 
 func findHandler(w http.ResponseWriter, req *http.Request) {
@@ -83,7 +83,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	var fixupMetrics bool
 
 	var prefix, metric string
-	var seconds int
+	var seconds int32
 	var ok bool
 	if prefix, seconds, metric, ok = parseTopK(query); ok && metric == "*" {
 		fixupMetrics = true
@@ -238,6 +238,7 @@ func graphiteServer(port int) {
 func main() {
 
 	wsize := flag.Int("w", 60, "window size")
+	agg := flag.Int("a", 1, "aggregation period")
 	epoch0 := flag.Int("epoch0", 0, "epoch0")
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
@@ -248,7 +249,7 @@ func main() {
 		*epoch0 = int(time.Now().Unix())
 	}
 
-	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize)
+	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize, int32(*agg))
 
 	go graphiteServer(*gport)
 

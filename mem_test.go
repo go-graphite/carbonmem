@@ -31,7 +31,7 @@ func TestMemStore(t *testing.T) {
 		{"bar", 126, 11, 126, 126, []float64{11}},
 	}
 
-	w := NewWhisper(100, 10)
+	w := NewWhisper(100, 10, 1)
 
 	for _, tt := range tests {
 		w.Set(tt.t, tt.metric, tt.count)
@@ -50,6 +50,35 @@ func TestMemStore(t *testing.T) {
 
 	if _, ok := w.known[id]; ok {
 		t.Errorf("`foo' wasn't clearned from 'known'")
+	}
+}
+
+func TestMemStoreAggregate(t *testing.T) {
+
+	var tests = []struct {
+		metric   string
+		t        int32
+		count    uint64
+		from     int32
+		until    int32
+		expected []float64
+	}{
+		{"foo", 100, 1, 95, 115, []float64{math.NaN(), 1, math.NaN(), math.NaN(), math.NaN()}},
+		{"foo", 100, 3, 95, 115, []float64{math.NaN(), 3, math.NaN(), math.NaN(), math.NaN()}},
+		{"foo", 107, 4, 95, 115, []float64{math.NaN(), 3, 4, math.NaN(), math.NaN()}},
+		{"foo", 98, 12, 95, 115, []float64{12, 3, 4, math.NaN(), math.NaN()}},
+	}
+
+	w := NewWhisper(100, 10, 5)
+
+	for _, tt := range tests {
+		w.Set(tt.t, tt.metric, tt.count)
+		if tt.expected != nil {
+			r := w.Fetch(tt.metric, tt.from, tt.until)
+			if r.Step != 5 || !nearlyEqual(r.Values, tt.expected) {
+				t.Errorf("got %#v  (step=%d), want %#v (step=5)\n", r.Values, r.Step, tt.expected)
+			}
+		}
 	}
 }
 
@@ -80,7 +109,7 @@ func nearlyEqual(a, b []float64) bool {
 
 func TestGlob(t *testing.T) {
 
-	w := NewWhisper(100, 10)
+	w := NewWhisper(100, 10, 1)
 
 	w.Set(100, "carbon.relays", 1)
 	w.Set(100, "carbon.zipper", 1)
@@ -136,7 +165,7 @@ func TestGlob(t *testing.T) {
 
 func TestTopK(t *testing.T) {
 
-	w := NewWhisper(100, 10)
+	w := NewWhisper(100, 10, 2)
 
 	w.Set(100, "carbon.rewhatever.lots", 10)
 	w.Set(100, "carbon.rewhatever.fewer", 8)
@@ -146,7 +175,7 @@ func TestTopK(t *testing.T) {
 
 	var tests = []struct {
 		prefix  string
-		seconds int
+		seconds int32
 		globs   []Glob
 	}{
 		{"carbon.rewhatever.", 4,
@@ -170,5 +199,4 @@ func TestTopK(t *testing.T) {
 			t.Errorf("Topk(%v, %v)=%v, want %v", tt.prefix, tt.seconds, g, tt.globs)
 		}
 	}
-
 }

@@ -20,7 +20,7 @@ func TestParseTopK(t *testing.T) {
 	var tests = []struct {
 		query   string
 		prefix  string
-		seconds int
+		seconds int32
 		metric  string
 		ok      bool
 	}{
@@ -53,7 +53,7 @@ func TestParseTopK(t *testing.T) {
 
 func TestTopKFind(t *testing.T) {
 
-	Metrics = carbonmem.NewWhisper(100, 10)
+	Metrics = carbonmem.NewWhisper(100, 10, 1)
 
 	for _, m := range []struct {
 		epoch  int32
@@ -130,7 +130,7 @@ func TestTopKFind(t *testing.T) {
 
 func TestTopKRender(t *testing.T) {
 
-	Metrics = carbonmem.NewWhisper(100, 10)
+	Metrics = carbonmem.NewWhisper(100, 10, 2)
 
 	for _, m := range []struct {
 		epoch  int32
@@ -139,13 +139,13 @@ func TestTopKRender(t *testing.T) {
 	}{
 		{100, "foo.bar", 10},
 		{100, "foo.baz", 50},
-		{101, "foo.bar", 11},
-		{101, "foo.baz", 40},
+		{102, "foo.bar", 11},
+		{102, "foo.baz", 40},
 
-		{102, "foo.bar", 12},
-		{103, "foo.bar", 13},
-		{103, "foo.qux", 13},
-		{104, "foo.bar", 14},
+		{104, "foo.bar", 12},
+		{106, "foo.bar", 13},
+		{106, "foo.qux", 13},
+		{108, "foo.bar", 14},
 	} {
 		Metrics.Set(m.epoch, m.metric, m.count)
 	}
@@ -158,12 +158,12 @@ func TestTopKRender(t *testing.T) {
 	}{
 		{
 			"foo.bar",
-			100, 104,
+			100, 108,
 			carbonserverpb.FetchResponse{
 				Name:      proto.String("foo.bar"),
 				StartTime: proto.Int32(100),
-				StopTime:  proto.Int32(104),
-				StepTime:  proto.Int32(1),
+				StopTime:  proto.Int32(108),
+				StepTime:  proto.Int32(2),
 				Values:    []float64{10, 11, 12, 13, 14},
 				IsAbsent:  []bool{false, false, false, false, false},
 			},
@@ -171,12 +171,12 @@ func TestTopKRender(t *testing.T) {
 
 		{
 			"foo.TopK.3s.bar",
-			100, 104,
+			100, 108,
 			carbonserverpb.FetchResponse{
 				Name:      proto.String("foo.TopK.3s.bar"),
 				StartTime: proto.Int32(100),
-				StopTime:  proto.Int32(104),
-				StepTime:  proto.Int32(1),
+				StopTime:  proto.Int32(108),
+				StepTime:  proto.Int32(2),
 				Values:    []float64{10, 11, 12, 13, 14},
 				IsAbsent:  []bool{false, false, false, false, false},
 			},
