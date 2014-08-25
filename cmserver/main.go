@@ -5,11 +5,13 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	_ "expvar"
 	"flag"
 	"log"
 	"math"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 	"strings"
 	"time"
