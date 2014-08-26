@@ -20,7 +20,7 @@ import (
 
 	"github.com/dgryski/carbonmem"
 
-	cspb "github.com/grobian/carbonserver/carbonserverpb"
+	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 )
 
 var Metrics *carbonmem.Whisper
@@ -99,11 +99,11 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	response := cspb.GlobResponse{
+	response := pb.GlobResponse{
 		Name: &query,
 	}
 
-	var matches []*cspb.GlobMatch
+	var matches []*pb.GlobMatch
 	for _, g := range globs {
 		// fix up metric name
 		var fixed string
@@ -112,7 +112,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 		} else {
 			fixed = g.Metric
 		}
-		m := cspb.GlobMatch{
+		m := pb.GlobMatch{
 			Path:   proto.String(fixed),
 			IsLeaf: proto.Bool(g.IsLeaf),
 		}
@@ -164,7 +164,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	fromTime := int32(points.From)
 	untilTime := int32(points.Until)
 	step := int32(points.Step)
-	response := cspb.FetchResponse{
+	response := pb.FetchResponse{
 		Name:      &target,
 		StartTime: &fromTime,
 		StopTime:  &untilTime,

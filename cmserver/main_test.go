@@ -12,7 +12,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgryski/carbonmem"
-	"github.com/grobian/carbonserver/carbonserverpb"
+	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 )
 
 func TestParseTopK(t *testing.T) {
@@ -75,39 +75,39 @@ func TestTopKFind(t *testing.T) {
 
 	for _, tt := range []struct {
 		query string
-		want  carbonserverpb.GlobResponse
+		want  pb.GlobResponse
 	}{
 		{
 			"foo.*",
-			carbonserverpb.GlobResponse{
+			pb.GlobResponse{
 				Name: proto.String("foo.*"),
-				Matches: []*carbonserverpb.GlobMatch{
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.bar"), IsLeaf: proto.Bool(true)},
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.baz"), IsLeaf: proto.Bool(true)},
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.qux"), IsLeaf: proto.Bool(true)},
+				Matches: []*pb.GlobMatch{
+					&pb.GlobMatch{Path: proto.String("foo.bar"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.baz"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.qux"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
 
 		{
 			"foo.TopK.3s.*",
-			carbonserverpb.GlobResponse{
+			pb.GlobResponse{
 				Name: proto.String("foo.TopK.3s.*"),
-				Matches: []*carbonserverpb.GlobMatch{
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.TopK.3s.bar"), IsLeaf: proto.Bool(true)},
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.TopK.3s.qux"), IsLeaf: proto.Bool(true)},
+				Matches: []*pb.GlobMatch{
+					&pb.GlobMatch{Path: proto.String("foo.TopK.3s.bar"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.TopK.3s.qux"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
 
 		{
 			"foo.TopK.5s.*",
-			carbonserverpb.GlobResponse{
+			pb.GlobResponse{
 				Name: proto.String("foo.TopK.5s.*"),
-				Matches: []*carbonserverpb.GlobMatch{
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.TopK.5s.baz"), IsLeaf: proto.Bool(true)},
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.TopK.5s.bar"), IsLeaf: proto.Bool(true)},
-					&carbonserverpb.GlobMatch{Path: proto.String("foo.TopK.5s.qux"), IsLeaf: proto.Bool(true)},
+				Matches: []*pb.GlobMatch{
+					&pb.GlobMatch{Path: proto.String("foo.TopK.5s.baz"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.TopK.5s.bar"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.TopK.5s.qux"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
@@ -118,7 +118,7 @@ func TestTopKFind(t *testing.T) {
 
 		findHandler(w, req)
 
-		var response carbonserverpb.GlobResponse
+		var response pb.GlobResponse
 
 		json.Unmarshal(w.Body.Bytes(), &response)
 
@@ -154,12 +154,12 @@ func TestTopKRender(t *testing.T) {
 		target string
 		from   int32
 		until  int32
-		want   carbonserverpb.FetchResponse
+		want   pb.FetchResponse
 	}{
 		{
 			"foo.bar",
 			100, 108,
-			carbonserverpb.FetchResponse{
+			pb.FetchResponse{
 				Name:      proto.String("foo.bar"),
 				StartTime: proto.Int32(100),
 				StopTime:  proto.Int32(108),
@@ -172,7 +172,7 @@ func TestTopKRender(t *testing.T) {
 		{
 			"foo.TopK.3s.bar",
 			100, 108,
-			carbonserverpb.FetchResponse{
+			pb.FetchResponse{
 				Name:      proto.String("foo.TopK.3s.bar"),
 				StartTime: proto.Int32(100),
 				StopTime:  proto.Int32(108),
@@ -188,7 +188,7 @@ func TestTopKRender(t *testing.T) {
 
 		renderHandler(w, req)
 
-		var response carbonserverpb.FetchResponse
+		var response pb.FetchResponse
 
 		json.Unmarshal(w.Body.Bytes(), &response)
 
