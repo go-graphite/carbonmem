@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/goprotobuf/proto"
+	"code.google.com/p/gogoprotobuf/proto"
 
 	"github.com/dgryski/carbonmem"
 
