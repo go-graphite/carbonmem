@@ -104,6 +104,8 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		return
 	}
 
+	// TODO(dgryski): limit how far back we can update
+
 	// less common -- update the past
 	back := int((w.t0 - t) / w.agg)
 
