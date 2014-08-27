@@ -80,6 +80,11 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	query := req.FormValue("query")
 	format := req.FormValue("format")
 
+	if format != "json" && format != "protobuf" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	var globs []carbonmem.Glob
 
 	var fixupMetrics bool
@@ -92,11 +97,6 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 		globs = Metrics.TopK(prefix, seconds)
 	} else {
 		globs = Metrics.Find(query)
-	}
-
-	if format != "json" && format != "protobuf" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
 	}
 
 	response := pb.GlobResponse{
@@ -143,6 +143,11 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	frint, _ := strconv.Atoi(from)
 	unint, _ := strconv.Atoi(until)
 
+	if format != "json" && format != "protobuf" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	var metric string
 	if prefix, _, m, ok := parseTopK(target); ok {
 		metric = prefix + m
@@ -153,11 +158,6 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	points := Metrics.Fetch(metric, int32(frint), int32(unint))
 
 	if points == nil {
-		return
-	}
-
-	if format != "json" && format != "protobuf" {
-		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
