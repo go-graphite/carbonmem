@@ -3,10 +3,11 @@ package carbonmem
 
 import (
 	"math"
-
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/armon/go-radix"
 )
 
 // Whisper is an in-memory whisper-like store
@@ -17,8 +18,8 @@ type Whisper struct {
 	idx    int
 	epochs []map[int]uint64
 
-	// TODO(dgryski): move this to armon/go-radix to speed up prefix matching
-	known map[int]int // metric -> #epochs it appears in
+	known map[int]int
+	keys  *radix.Tree
 
 	l *lookup
 }
@@ -35,6 +36,7 @@ func NewWhisper(t0 int32, cap int, agg int32) *Whisper {
 		agg:    agg,
 		epochs: epochs,
 		known:  make(map[int]int),
+		keys:   radix.New(),
 		l:      newLookup(),
 	}
 }
@@ -58,7 +60,12 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		_, ok := m[id]
 		if !ok {
 			// one more occurrence of this metric
-			w.known[id]++
+			v, ok := w.known[id]
+			if !ok {
+				// new key, add to prefix list
+				w.keys.Insert(metric, struct{}{})
+			}
+			w.known[id] = v + 1
 		}
 
 		m[id] = val
@@ -82,6 +89,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 					w.known[id]--
 					if w.known[id] == 0 {
 						delete(w.known, id)
+						w.keys.Delete(w.l.Reverse(id))
 					}
 				}
 				w.epochs[w.idx] = nil
@@ -90,7 +98,11 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 		id := w.l.FindOrAdd(metric)
 
-		w.known[id]++
+		v, ok := w.known[id]
+		if !ok {
+			w.keys.Insert(metric, struct{}{})
+		}
+		w.known[id] = v + 1
 		w.epochs[w.idx] = map[int]uint64{id: val}
 		return
 	}
@@ -227,24 +239,23 @@ func (w *Whisper) Find(query string) []Glob {
 	var response []Glob
 	l := len(query)
 	seen := make(map[string]bool)
-	for id, _ := range w.known {
-		k := w.l.Reverse(id)
-		if strings.HasPrefix(k, query) {
-			// figure out if we're a leaf or not
-			dot := strings.IndexByte(k[l:], '.')
-			var leaf bool
-			m := k
-			if dot == -1 {
-				leaf = true
-			} else {
-				m = k[:dot+l]
-			}
-			if !seen[m] {
-				seen[m] = true
-				response = append(response, Glob{Metric: m, IsLeaf: leaf})
-			}
+	w.keys.WalkPrefix(query, func(k string, v interface{}) bool {
+		// figure out if we're a leaf or not
+		dot := strings.IndexByte(k[l:], '.')
+		var leaf bool
+		m := k
+		if dot == -1 {
+			leaf = true
+		} else {
+			m = k[:dot+l]
 		}
-	}
+		if !seen[m] {
+			seen[m] = true
+			response = append(response, Glob{Metric: m, IsLeaf: leaf})
+		}
+		// false == "don't terminate iteration"
+		return false
+	})
 
 	sort.Sort(globByName(response))
 
