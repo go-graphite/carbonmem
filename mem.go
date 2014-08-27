@@ -226,6 +226,7 @@ func (w *Whisper) Find(query string) []Glob {
 
 	var response []Glob
 	l := len(query)
+	seen := make(map[string]bool)
 	for id, _ := range w.known {
 		k := w.l.Reverse(id)
 		if strings.HasPrefix(k, query) {
@@ -238,7 +239,10 @@ func (w *Whisper) Find(query string) []Glob {
 			} else {
 				m = k[:dot+l]
 			}
-			response = appendIfUnique(response, Glob{Metric: m, IsLeaf: leaf})
+			if !seen[m] {
+				seen[m] = true
+				response = append(response, Glob{Metric: m, IsLeaf: leaf})
+			}
 		}
 	}
 
@@ -312,19 +316,6 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	}
 
 	return response
-}
-
-// TODO(dgryski): replace with something faster if needed
-
-func appendIfUnique(response []Glob, g Glob) []Glob {
-
-	for i := range response {
-		if response[i].Metric == g.Metric {
-			return response
-		}
-	}
-
-	return append(response, g)
 }
 
 type lookup struct {
