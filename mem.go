@@ -54,6 +54,8 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 		id := w.l.FindOrAdd(metric)
 
+		w.locks[w.idx].Lock()
+
 		m := w.epochs[w.idx]
 
 		// have we seen this metric this epoch?
@@ -64,6 +66,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		}
 
 		m[id] = val
+		w.locks[w.idx].Unlock()
 		return
 	}
 
@@ -78,6 +81,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 				w.idx = 0
 			}
 
+			w.locks[w.idx].Lock()
 			m := w.epochs[w.idx]
 			if m != nil {
 				for id, _ := range m {
@@ -88,12 +92,15 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 				}
 				w.epochs[w.idx] = nil
 			}
+			w.locks[w.idx].Unlock()
 		}
 
 		id := w.l.FindOrAdd(metric)
 
 		w.known[id]++
+		w.locks[w.idx].Lock()
 		w.epochs[w.idx] = map[int]uint64{id: val}
+		w.locks[w.idx].Unlock()
 		return
 	}
 
@@ -112,6 +119,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		idx += len(w.epochs)
 	}
 
+	w.locks[idx].Lock()
 	m := w.epochs[idx]
 	if m == nil {
 		m = make(map[int]uint64)
@@ -125,6 +133,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		w.known[id]++
 	}
 	m[id] = val
+	w.locks[idx].Unlock()
 }
 
 type Fetched struct {
