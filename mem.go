@@ -234,6 +234,14 @@ func (w *Whisper) Find(query string) []Glob {
 	w.RLock()
 	defer w.RUnlock()
 
+	// no wildcard == exact match only
+	if !strings.HasSuffix(query, "*") {
+		if _, ok := w.keys.Get(query); !ok {
+			return nil
+		}
+		return []Glob{{Metric: query, IsLeaf: true}}
+	}
+
 	query = strings.TrimSuffix(query, "*")
 
 	var response []Glob
