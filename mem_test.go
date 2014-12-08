@@ -48,8 +48,8 @@ func TestMemStore(t *testing.T) {
 		t.Errorf("foo is an unknown metric")
 	}
 
-	if _, ok := w.known[id]; ok {
-		t.Errorf("`foo' wasn't clearned from 'known'")
+	if w.l.Active(id) {
+		t.Errorf("`foo' wasn't cleared from 'active'")
 	}
 }
 

@@ -18,9 +18,6 @@ type Whisper struct {
 	idx    int
 	epochs []map[int]uint64
 
-	known map[int]int
-	keys  *radix.Tree
-
 	l *lookup
 }
 
@@ -35,8 +32,6 @@ func NewWhisper(t0 int32, cap int, agg int32) *Whisper {
 		t0:     t0,
 		agg:    agg,
 		epochs: epochs,
-		known:  make(map[int]int),
-		keys:   radix.New(),
 		l:      newLookup(),
 	}
 }
@@ -60,12 +55,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		_, ok := m[id]
 		if !ok {
 			// one more occurrence of this metric
-			v, ok := w.known[id]
-			if !ok {
-				// new key, add to prefix list
-				w.keys.Insert(metric, struct{}{})
-			}
-			w.known[id] = v + 1
+			w.l.AddRef(id)
 		}
 
 		m[id] = val
@@ -86,11 +76,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 			m := w.epochs[w.idx]
 			if m != nil {
 				for id, _ := range m {
-					w.known[id]--
-					if w.known[id] == 0 {
-						delete(w.known, id)
-						w.keys.Delete(w.l.Reverse(id))
-					}
+					w.l.DelRef(id)
 				}
 				w.epochs[w.idx] = nil
 			}
@@ -98,11 +84,8 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 		id := w.l.FindOrAdd(metric)
 
-		v, ok := w.known[id]
-		if !ok {
-			w.keys.Insert(metric, struct{}{})
-		}
-		w.known[id] = v + 1
+		w.l.AddRef(id)
+
 		w.epochs[w.idx] = map[int]uint64{id: val}
 		return
 	}
@@ -134,7 +117,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	_, ok := m[id]
 	if !ok {
-		w.known[id]++
+		w.l.AddRef(id)
 	}
 	m[id] = val
 }
@@ -165,7 +148,7 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		return nil
 	}
 
-	if _, ok := w.known[id]; !ok {
+	if !w.l.Active(id) {
 		return nil
 	}
 
@@ -236,7 +219,7 @@ func (w *Whisper) Find(query string) []Glob {
 
 	// no wildcard == exact match only
 	if !strings.HasSuffix(query, "*") {
-		if _, ok := w.keys.Get(query); !ok {
+		if _, ok := w.l.Find(query); !ok {
 			return nil
 		}
 		return []Glob{{Metric: query, IsLeaf: true}}
@@ -247,7 +230,7 @@ func (w *Whisper) Find(query string) []Glob {
 	var response []Glob
 	l := len(query)
 	seen := make(map[string]bool)
-	w.keys.WalkPrefix(query, func(k string, v interface{}) bool {
+	w.l.Prefix(query, func(k string, v interface{}) bool {
 		// figure out if we're a leaf or not
 		dot := strings.IndexByte(k[l:], '.')
 		var leaf bool
@@ -338,15 +321,23 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 }
 
 type lookup struct {
-	keys    map[string]int
-	revKeys map[int]string
-	numKeys int
+	// all metrics
+	keys  map[string]int
+	rev   map[int]string
+	count int
+
+	// currently 'active'
+	active map[int]int
+	prefix *radix.Tree
 }
 
 func newLookup() *lookup {
 	return &lookup{
-		keys:    make(map[string]int),
-		revKeys: make(map[int]string),
+		keys: make(map[string]int),
+		rev:  make(map[int]string),
+
+		active: make(map[int]int),
+		prefix: radix.New(),
 	}
 }
 
@@ -363,22 +354,47 @@ func (l *lookup) FindOrAdd(key string) int {
 		return id
 	}
 
-	id = l.numKeys
-	l.numKeys++
+	id = l.count
+	l.count++
 
 	l.keys[key] = id
-	l.revKeys[id] = key
+	l.rev[id] = key
 
 	return id
 }
 
 func (l *lookup) Reverse(id int) string {
 
-	key, ok := l.revKeys[id]
+	key, ok := l.rev[id]
 
 	if !ok {
 		panic("looked up invalid key")
 	}
 
 	return key
+}
+
+func (l *lookup) AddRef(id int) {
+	v, ok := l.active[id]
+	if !ok {
+		l.prefix.Insert(l.rev[id], id)
+	}
+
+	l.active[id] = v + 1
+}
+
+func (l *lookup) DelRef(id int) {
+	l.active[id]--
+	if l.active[id] == 0 {
+		delete(l.active, id)
+		l.prefix.Delete(l.rev[id])
+	}
+}
+
+func (l *lookup) Active(id int) bool {
+	return l.active[id] != 0
+}
+
+func (l *lookup) Prefix(query string, fn radix.WalkFn) {
+	l.prefix.WalkPrefix(query, fn)
 }
