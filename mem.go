@@ -345,7 +345,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 type lookup struct {
 	// all metrics
 	keys  map[string]int
-	rev   map[int]string
+	revs  []string
 	count int
 
 	// currently 'active'
@@ -359,7 +359,6 @@ type lookup struct {
 func newLookup() *lookup {
 	return &lookup{
 		keys: make(map[string]int),
-		rev:  make(map[int]string),
 
 		active: make(map[int]int),
 		prefix: radix.New(),
@@ -385,7 +384,7 @@ func (l *lookup) FindOrAdd(key string) int {
 	l.count++
 
 	l.keys[key] = id
-	l.rev[id] = key
+	l.revs = append(l.revs, key)
 
 	path := strings.Replace(key, ".", "/", -1) + ".wsp"
 
@@ -396,20 +395,13 @@ func (l *lookup) FindOrAdd(key string) int {
 }
 
 func (l *lookup) Reverse(id int) string {
-
-	key, ok := l.rev[id]
-
-	if !ok {
-		panic("looked up invalid key")
-	}
-
-	return key
+	return l.revs[id]
 }
 
 func (l *lookup) AddRef(id int) {
 	v, ok := l.active[id]
 	if !ok {
-		l.prefix.Insert(l.rev[id], id)
+		l.prefix.Insert(l.revs[id], id)
 	}
 
 	l.active[id] = v + 1
@@ -419,7 +411,7 @@ func (l *lookup) DelRef(id int) {
 	l.active[id]--
 	if l.active[id] == 0 {
 		delete(l.active, id)
-		l.prefix.Delete(l.rev[id])
+		l.prefix.Delete(l.revs[id])
 	}
 }
 
