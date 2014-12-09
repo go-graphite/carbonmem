@@ -3,11 +3,13 @@ package carbonmem
 
 import (
 	"math"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/armon/go-radix"
+	"github.com/dgryski/go-trigram"
 )
 
 // Whisper is an in-memory whisper-like store
@@ -210,7 +212,7 @@ func (g globByName) Less(i, j int) bool {
 	return g[i].Metric < g[j].Metric
 }
 
-// TODO(dgryski): only does prefix matching for the moment
+// TODO(dgryski): this needs most of the logic in grobian/carbsonerver:findHandler()
 
 func (w *Whisper) Find(query string) []Glob {
 
@@ -218,35 +220,55 @@ func (w *Whisper) Find(query string) []Glob {
 	defer w.RUnlock()
 
 	// no wildcard == exact match only
-	if !strings.HasSuffix(query, "*") {
+	var star int
+	if star = strings.Index(query, "*"); star == -1 {
 		if _, ok := w.l.Find(query); !ok {
 			return nil
 		}
 		return []Glob{{Metric: query, IsLeaf: true}}
 	}
 
-	query = strings.TrimSuffix(query, "*")
-
 	var response []Glob
-	l := len(query)
-	seen := make(map[string]bool)
-	w.l.Prefix(query, func(k string, v interface{}) bool {
-		// figure out if we're a leaf or not
-		dot := strings.IndexByte(k[l:], '.')
-		var leaf bool
-		m := k
-		if dot == -1 {
-			leaf = true
-		} else {
-			m = k[:dot+l]
-		}
-		if !seen[m] {
-			seen[m] = true
+
+	if star == len(query)-1 {
+		query = strings.TrimSuffix(query, "*")
+
+		l := len(query)
+		seen := make(map[string]bool)
+		w.l.Prefix(query, func(k string, v interface{}) bool {
+			// figure out if we're a leaf or not
+			dot := strings.IndexByte(k[l:], '.')
+			var leaf bool
+			m := k
+			if dot == -1 {
+				leaf = true
+			} else {
+				m = k[:dot+l]
+			}
+			if !seen[m] {
+				seen[m] = true
+				response = append(response, Glob{Metric: m, IsLeaf: leaf})
+			}
+			// false == "don't terminate iteration"
+			return false
+		})
+	} else {
+		// at least one interior star
+
+		query = strings.Replace(query, ".", "/", -1)
+
+		paths := w.l.QueryPath(query)
+
+		for _, p := range paths {
+			m := strings.Replace(p, "/", ".", -1)
+			var leaf bool
+			if strings.HasSuffix(p, ".wsp") {
+				m = strings.TrimSuffix(m, ".wsp")
+				leaf = true
+			}
 			response = append(response, Glob{Metric: m, IsLeaf: leaf})
 		}
-		// false == "don't terminate iteration"
-		return false
-	})
+	}
 
 	sort.Sort(globByName(response))
 
@@ -329,6 +351,9 @@ type lookup struct {
 	// currently 'active'
 	active map[int]int
 	prefix *radix.Tree
+
+	pathidx trigram.Index
+	paths   []string
 }
 
 func newLookup() *lookup {
@@ -338,6 +363,8 @@ func newLookup() *lookup {
 
 		active: make(map[int]int),
 		prefix: radix.New(),
+
+		pathidx: trigram.NewIndex(nil),
 	}
 }
 
@@ -359,6 +386,11 @@ func (l *lookup) FindOrAdd(key string) int {
 
 	l.keys[key] = id
 	l.rev[id] = key
+
+	path := strings.Replace(key, ".", "/", -1) + ".wsp"
+
+	l.pathidx.Insert(path, trigram.DocID(id))
+	l.paths = append(l.paths, path)
 
 	return id
 }
@@ -397,4 +429,76 @@ func (l *lookup) Active(id int) bool {
 
 func (l *lookup) Prefix(query string, fn radix.WalkFn) {
 	l.prefix.WalkPrefix(query, fn)
+}
+
+func (l *lookup) QueryPath(query string) []string {
+
+	var fquery string
+
+	if !strings.HasSuffix(query, "*") {
+		fquery = query + ".wsp"
+	}
+
+	ts := extractTrigrams(query)
+
+	ids := l.pathidx.QueryTrigrams(ts)
+
+	seen := make(map[string]bool)
+
+	for _, id := range ids {
+
+		p := l.paths[int(id)]
+
+		dir := filepath.Dir(p)
+
+		if matched, err := filepath.Match(query, dir); err == nil && matched {
+			seen[dir] = true
+			continue
+		}
+
+		if fquery != "" {
+			if matched, err := filepath.Match(fquery, p); err == nil && matched {
+				seen[p] = true
+			}
+		}
+	}
+
+	var files []string
+
+	for p := range seen {
+		files = append(files, p)
+	}
+
+	return files
+}
+
+func extractTrigrams(query string) []trigram.T {
+
+	if len(query) < 3 {
+		return nil
+	}
+
+	var start int
+	var i int
+
+	var trigrams []trigram.T
+
+	for i < len(query) {
+		if query[i] == '[' || query[i] == '*' || query[i] == '?' {
+			trigrams = trigram.Extract(query[start:i], trigrams)
+
+			if query[i] == '[' {
+				for i < len(query) && query[i] != ']' {
+					i++
+				}
+			}
+
+			start = i + 1
+		}
+		i++
+	}
+
+	trigrams = trigram.Extract(query[start:i], trigrams)
+
+	return trigrams
 }
