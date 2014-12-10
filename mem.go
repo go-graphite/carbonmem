@@ -426,11 +426,7 @@ func (l *lookup) Prefix(query string, fn radix.WalkFn) {
 
 func (l *lookup) QueryPath(query string) []string {
 
-	var fquery string
-
-	if !strings.HasSuffix(query, "*") {
-		fquery = query + ".wsp"
-	}
+	fquery := query + ".wsp"
 
 	ts := extractTrigrams(query)
 

@@ -160,6 +160,12 @@ func TestGlob(t *testing.T) {
 				{Metric: "carbon.rewhatever", IsLeaf: false},
 			},
 		},
+		{
+			"carbon.re*.erro*",
+			[]Glob{
+				{Metric: "carbon.rewhatever.errors", IsLeaf: true},
+			},
+		},
 	}
 
 	for _, tt := range tests {
