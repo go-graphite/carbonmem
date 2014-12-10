@@ -21,32 +21,30 @@ func TestParseTopK(t *testing.T) {
 		query   string
 		prefix  string
 		seconds int32
-		metric  string
 		ok      bool
 	}{
 		// good
-		{"prefix.blah.TopK.10m.*", "prefix.blah.", 10 * 60, "*", true},
-		{"prefix.blah.TopK.10s.*", "prefix.blah.", 10, "*", true},
-		{"prefix.blah.TopK.10m.foo", "prefix.blah.", 600, "foo", true},
+		{"prefix.blah.*.TopK.10m", "prefix.blah.*", 10 * 60, true},
+		{"prefix.blah.*.TopK.10s", "prefix.blah.*", 10, true},
+		{"prefix.blah.foo.TopK.10m", "prefix.blah.foo", 600, true},
 
 		// bad
-		{"prefix.foo.bar.baz", "", 0, "", false},
-		{"prefix.blah.TopK.10m*", "", 0, "", false},
-		{"prefix.blah.TopK.10", "", 0, "", false},
-		{"prefix.blah.TopK.10m", "", 0, "", false},
-		{"prefix.blah.TopK.10m.", "", 0, "", false},
-		{"prefix.blah.TopK.10z", "", 0, "", false},
-		{"prefix.blah.TopK.10m.*.foo", "", 0, "", false},
-		{"prefix.blah.TopK.10m.foo.*", "", 0, "", false},
-		{"prefix.blah.TopK.10s*", "", 0, "", false},
-		{"prefix.blah.TopK.-10m.*", "", 0, "", false},
-		{"prefix.blah.TopK.*", "", 0, "", false},
-		{"prefix.blah.TopK.", "", 0, "", false},
+		{"prefix.foo.bar.baz", "", 0, false},
+		{"prefix.blah.TopK.10m*", "", 0, false},
+		{"prefix.blah.TopK.10", "", 0, false},
+		{"prefix.blah.TopK.10m.", "", 0, false},
+		{"prefix.blah.TopK.10z", "", 0, false},
+		{"prefix.blah.TopK.10m.*.foo", "", 0, false},
+		{"prefix.blah.TopK.10m.foo.*", "", 0, false},
+		{"prefix.blah.TopK.10s*", "", 0, false},
+		{"prefix.blah.TopK.-10m.*", "", 0, false},
+		{"prefix.blah.TopK.*", "", 0, false},
+		{"prefix.blah.TopK.", "", 0, false},
 	}
 
 	for _, tt := range tests {
-		if prefix, seconds, metric, ok := parseTopK(tt.query); prefix != tt.prefix || seconds != tt.seconds || ok != tt.ok || metric != tt.metric {
-			t.Errorf("parseTopK(%s)=(%q,%v,%q,%v), want (%q,%v,%q,%v)", tt.query, prefix, seconds, metric, ok, tt.prefix, tt.seconds, tt.metric, tt.ok)
+		if prefix, seconds, ok := parseTopK(tt.query); prefix != tt.prefix || seconds != tt.seconds || ok != tt.ok {
+			t.Errorf("parseTopK(%s)=(%q,%v,%v), want (%q,%v,%v)", tt.query, prefix, seconds, ok, tt.prefix, tt.seconds, tt.ok)
 		}
 	}
 }
@@ -90,24 +88,24 @@ func TestTopKFind(t *testing.T) {
 		},
 
 		{
-			"foo.TopK.3s.*",
+			"foo.*.TopK.3s",
 			pb.GlobResponse{
-				Name: proto.String("foo.TopK.3s.*"),
+				Name: proto.String("foo.*.TopK.3s"),
 				Matches: []*pb.GlobMatch{
-					&pb.GlobMatch{Path: proto.String("foo.TopK.3s.bar"), IsLeaf: proto.Bool(true)},
-					&pb.GlobMatch{Path: proto.String("foo.TopK.3s.qux"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.bar.TopK.3s"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.qux.TopK.3s"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
 
 		{
-			"foo.TopK.5s.*",
+			"foo.*.TopK.5s",
 			pb.GlobResponse{
-				Name: proto.String("foo.TopK.5s.*"),
+				Name: proto.String("foo.*.TopK.5s"),
 				Matches: []*pb.GlobMatch{
-					&pb.GlobMatch{Path: proto.String("foo.TopK.5s.baz"), IsLeaf: proto.Bool(true)},
-					&pb.GlobMatch{Path: proto.String("foo.TopK.5s.bar"), IsLeaf: proto.Bool(true)},
-					&pb.GlobMatch{Path: proto.String("foo.TopK.5s.qux"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.baz.TopK.5s"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.bar.TopK.5s"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.qux.TopK.5s"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
@@ -170,10 +168,10 @@ func TestTopKRender(t *testing.T) {
 		},
 
 		{
-			"foo.TopK.3s.bar",
+			"foo.bar.TopK.3s",
 			100, 108,
 			pb.FetchResponse{
-				Name:      proto.String("foo.TopK.3s.bar"),
+				Name:      proto.String("foo.bar.TopK.3s"),
 				StartTime: proto.Int32(100),
 				StopTime:  proto.Int32(108),
 				StepTime:  proto.Int32(2),

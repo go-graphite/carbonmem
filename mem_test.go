@@ -191,13 +191,13 @@ func TestTopK(t *testing.T) {
 		seconds int32
 		globs   []Glob
 	}{
-		{"carbon.rewhatever.", 4,
+		{"carbon.rewhatever.*", 4,
 			[]Glob{
 				{Metric: "carbon.rewhatever.foo", IsLeaf: true},
 				{Metric: "carbon.rewhatever.bar", IsLeaf: true},
 			},
 		},
-		{"carbon.rewhatever.", 6,
+		{"carbon.rewhatever.*", 6,
 			[]Glob{
 				{Metric: "carbon.rewhatever.lots", IsLeaf: true},
 				{Metric: "carbon.rewhatever.fewer", IsLeaf: true},

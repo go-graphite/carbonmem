@@ -25,17 +25,17 @@ import (
 
 var Metrics *carbonmem.Whisper
 
-func parseTopK(query string) (string, int32, string, bool) {
+func parseTopK(query string) (string, int32, bool) {
 
-	// prefix.blah.TopK.10m.*   => "prefix.blah.", 600, "*", true
+	// prefix.blah.*.TopK.10m  => "prefix.blah.*", 600, true
 
 	var idx int
 	if idx = strings.Index(query, ".TopK."); idx == -1 {
 		// not found
-		return "", 0, "", false
+		return "", 0, false
 	}
 
-	prefix := query[:idx+1]
+	prefix := query[:idx]
 
 	timeIdx := idx + len(".TopK.")
 
@@ -47,7 +47,7 @@ func parseTopK(query string) (string, int32, string, bool) {
 
 	// ran off the end or no numbers present
 	if unitsIdx == len(query) || unitsIdx == timeIdx {
-		return "", 0, "", false
+		return "", 0, false
 	}
 
 	multiplier := 0
@@ -58,21 +58,19 @@ func parseTopK(query string) (string, int32, string, bool) {
 		multiplier = 60
 	default:
 		// unknown units
-		return "", 0, "", false
+		return "", 0, false
 	}
 
-	metric := query[unitsIdx+1:]
-
-	if len(metric) <= 1 || metric[0] != '.' || strings.IndexByte(metric[1:], '.') != -1 {
-		return "", 0, "", false
+	if unitsIdx != len(query)-1 {
+		return "", 0, false
 	}
 
 	timeUnits, err := strconv.Atoi(query[timeIdx:unitsIdx])
 	if err != nil {
-		return "", 0, "", false
+		return "", 0, false
 	}
 
-	return prefix, int32(timeUnits * multiplier), metric[1:], true
+	return prefix, int32(timeUnits * multiplier), true
 }
 
 func findHandler(w http.ResponseWriter, req *http.Request) {
@@ -87,13 +85,11 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 
 	var globs []carbonmem.Glob
 
-	var fixupMetrics bool
-
-	var prefix, metric string
+	var prefix, topk string
 	var seconds int32
 	var ok bool
-	if prefix, seconds, metric, ok = parseTopK(query); ok && metric == "*" {
-		fixupMetrics = true
+	if prefix, seconds, ok = parseTopK(query); ok {
+		topk = query[len(prefix):]
 		globs = Metrics.TopK(prefix, seconds)
 	} else {
 		globs = Metrics.Find(query)
@@ -106,14 +102,8 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	var matches []*pb.GlobMatch
 	for _, g := range globs {
 		// fix up metric name
-		var fixed string
-		if fixupMetrics {
-			fixed = strings.TrimSuffix(query, metric) + strings.TrimPrefix(g.Metric, prefix)
-		} else {
-			fixed = g.Metric
-		}
 		m := pb.GlobMatch{
-			Path:   proto.String(fixed),
+			Path:   proto.String(g.Metric + topk),
 			IsLeaf: proto.Bool(g.IsLeaf),
 		}
 		matches = append(matches, &m)
@@ -149,8 +139,8 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var metric string
-	if prefix, _, m, ok := parseTopK(target); ok {
-		metric = prefix + m
+	if prefix, _, ok := parseTopK(target); ok {
+		metric = prefix
 	} else {
 		metric = target
 	}

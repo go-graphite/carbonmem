@@ -299,6 +299,8 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	w.RLock()
 	defer w.RUnlock()
 
+	glob := strings.Replace(prefix, ".", "/", -1) + ".wsp"
+
 	buckets := int(seconds / w.agg)
 
 	idx := w.idx
@@ -314,8 +316,8 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	for i := 0; i < buckets; i++ {
 		m := w.epochs[idx]
 		for id, v := range m {
-			k := w.l.Reverse(id)
-			if strings.HasPrefix(k, prefix) {
+			k := w.l.Path(id)
+			if matched, err := filepath.Match(glob, k); err == nil && matched {
 				counts[id] += v
 			}
 		}
@@ -397,6 +399,10 @@ func (l *lookup) FindOrAdd(key string) int {
 
 func (l *lookup) Reverse(id int) string {
 	return l.revs[id]
+}
+
+func (l *lookup) Path(id int) string {
+	return l.paths[id]
 }
 
 func (l *lookup) AddRef(id int) {
