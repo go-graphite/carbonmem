@@ -231,6 +231,7 @@ func (w *Whisper) Find(query string) []Glob {
 	var response []Glob
 
 	if star == len(query)-1 {
+		// only one trailing star
 		query = strings.TrimSuffix(query, "*")
 
 		l := len(query)
