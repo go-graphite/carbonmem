@@ -446,6 +446,10 @@ func (l *lookup) QueryPath(query string) []string {
 
 		dir := filepath.Dir(p)
 
+		if seen[dir] {
+			continue
+		}
+
 		if matched, err := filepath.Match(query, dir); err == nil && matched {
 			seen[dir] = true
 			continue
