@@ -312,12 +312,22 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	}
 
 	// gather counts for all metrics in this time period
+	matchingGlobs := make(map[int]bool)
 	counts := make(map[int]uint64)
 	for i := 0; i < buckets; i++ {
 		m := w.epochs[idx]
 		for id, v := range m {
-			k := w.l.Path(id)
-			if matched, err := filepath.Match(glob, k); err == nil && matched {
+			var matched, ok bool
+			if matched, ok = matchingGlobs[id]; !ok {
+				k := w.l.Path(id)
+				var err error
+				matched, err = filepath.Match(glob, k)
+				if err != nil {
+					matched = false // make sure
+				}
+				matchingGlobs[id] = matched
+			}
+			if matched {
 				counts[id] += v
 			}
 		}
