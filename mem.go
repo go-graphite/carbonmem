@@ -451,10 +451,8 @@ func (l *lookup) QueryPath(query string) []string {
 			continue
 		}
 
-		if fquery != "" {
-			if matched, err := filepath.Match(fquery, p); err == nil && matched {
-				seen[p] = true
-			}
+		if matched, err := filepath.Match(fquery, p); err == nil && matched {
+			seen[p] = true
 		}
 	}
 
