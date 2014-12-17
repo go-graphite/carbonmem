@@ -10,6 +10,7 @@ import (
 
 	"github.com/armon/go-radix"
 	"github.com/dgryski/go-trigram"
+	"github.com/wangjohn/quickselect"
 )
 
 // Whisper is an in-memory whisper-like store
@@ -344,10 +345,19 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	countedKeys := keysByCount{keys: keys, counts: counts}
 
+	keylen := 100
+	if keylen > countedKeys.Len() {
+		keylen = countedKeys.Len()
+	}
+
+	quickselect.QuickSelect(countedKeys, keylen)
+
+	countedKeys.keys = countedKeys.keys[:keylen]
 	sort.Sort(countedKeys)
+
 	var response []Glob
 
-	for i := 0; i < 100 && i < countedKeys.Len(); i++ {
+	for i := 0; i < keylen; i++ {
 		m := w.l.Reverse(countedKeys.keys[i])
 		response = append(response, Glob{Metric: m, IsLeaf: true})
 	}
