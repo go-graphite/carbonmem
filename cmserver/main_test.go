@@ -64,9 +64,9 @@ func TestTopKFind(t *testing.T) {
 		{120 + 1*60, "foo.baz", 40},
 
 		{120 + 2*60, "foo.bar", 12},
-		{12 + 3*60, "foo.bar", 13},
-		{12 + 3*60, "foo.qux", 13},
-		{12 + 4*60, "foo.bar", 14},
+		{120 + 3*60, "foo.bar", 13},
+		{120 + 3*60, "foo.qux", 13},
+		{120 + 4*60, "foo.bar", 14},
 	} {
 		Metrics.Set(m.epoch, m.metric, m.count)
 	}
