@@ -230,7 +230,6 @@ func graphiteServer(port int) {
 func main() {
 
 	wsize := flag.Int("w", 60, "window size")
-	agg := flag.Int("a", 1, "aggregation period")
 	epoch0 := flag.Int("epoch0", 0, "epoch0")
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
@@ -241,7 +240,7 @@ func main() {
 		*epoch0 = int(time.Now().Unix())
 	}
 
-	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize, int32(*agg))
+	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize)
 
 	go graphiteServer(*gport)
 

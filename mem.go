@@ -17,23 +17,21 @@ import (
 type Whisper struct {
 	sync.RWMutex
 	t0     int32
-	agg    int32
 	idx    int
 	epochs []map[int]uint64
 
 	l *lookup
 }
 
-func NewWhisper(t0 int32, cap int, agg int32) *Whisper {
+func NewWhisper(t0 int32, cap int) *Whisper {
 
-	t0 = t0 - (t0 % agg)
+	t0 = t0 - (t0 % 60)
 
 	epochs := make([]map[int]uint64, cap)
 	epochs[0] = make(map[int]uint64)
 
 	return &Whisper{
 		t0:     t0,
-		agg:    agg,
 		epochs: epochs,
 		l:      newLookup(),
 	}
@@ -45,8 +43,6 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 	defer w.Unlock()
 
 	// based on github.com/dgryski/go-timewindow
-
-	t = t - (t % w.agg)
 
 	if t == w.t0 {
 
@@ -70,7 +66,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		// maps we pass by
 
 		for w.t0 < t {
-			w.t0 += w.agg
+			w.t0++
 			w.idx++
 			if w.idx >= len(w.epochs) {
 				w.idx = 0
@@ -96,7 +92,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 	// TODO(dgryski): limit how far back we can update
 
 	// less common -- update the past
-	back := int((w.t0 - t) / w.agg)
+	back := int(w.t0 - t)
 
 	if back >= len(w.epochs) {
 		// too far in the past, ignore
@@ -137,10 +133,6 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 	w.RLock()
 	defer w.RUnlock()
 
-	// round to window
-	from = from - (from % w.agg)
-	until = until - (until % w.agg)
-
 	if from > w.t0 {
 		return nil
 	}
@@ -159,20 +151,20 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		return nil
 	}
 
-	if min := w.t0 - int32(len(w.epochs))*w.agg + 1; from < min {
+	if min := w.t0 - int32(len(w.epochs)) + 1; from < min {
 		from = min
 	}
 
-	idx := w.idx - int((w.t0-from)/w.agg)
+	idx := w.idx - int(w.t0-from)
 	if idx < 0 {
 		idx += len(w.epochs)
 	}
 
-	points := (until - from + (w.agg - 1) + 1) / w.agg // inclusive of 'until'
+	points := (until - from + 1) // inclusive of 'until'
 	r := &Fetched{
 		From:   from,
 		Until:  until,
-		Step:   w.agg,
+		Step:   1,
 		Values: make([]float64, points),
 	}
 
@@ -302,7 +294,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	glob := strings.Replace(prefix, ".", "/", -1) + ".wsp"
 
-	buckets := int(seconds / w.agg)
+	buckets := int(seconds)
 
 	idx := w.idx
 	l := len(w.epochs)
