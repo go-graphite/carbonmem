@@ -16,24 +16,34 @@ import (
 // Whisper is an in-memory whisper-like store
 type Whisper struct {
 	sync.RWMutex
-	t0     int32
+	t0 int32
+
+	// TODO(dgryski): map[uint32]uint32 ?
+
 	idx    int
 	epochs []map[int]uint64
+
+	midx    int
+	minutes []map[int]uint64
 
 	l *lookup
 }
 
-func NewWhisper(t0 int32, cap int) *Whisper {
+func NewWhisper(t0 int32, ecap, cap int) *Whisper {
 
 	t0 = t0 - (t0 % 60)
 
-	epochs := make([]map[int]uint64, cap)
+	epochs := make([]map[int]uint64, ecap)
 	epochs[0] = make(map[int]uint64)
 
+	minutes := make([]map[int]uint64, cap/60)
+	minutes[0] = make(map[int]uint64)
+
 	return &Whisper{
-		t0:     t0,
-		epochs: epochs,
-		l:      newLookup(),
+		t0:      t0,
+		epochs:  epochs,
+		minutes: minutes,
+		l:       newLookup(),
 	}
 }
 
@@ -49,21 +59,26 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		id := w.l.FindOrAdd(metric)
 
 		m := w.epochs[w.idx]
+		mm := w.minutes[w.midx]
 
-		// have we seen this metric this epoch?
-		_, ok := m[id]
+		// have we seen this metric this epoch? Get the value so aggregate counts are correct
+		v := m[id]
+
+		// have we seen this metric this minute?
+		_, ok := mm[id]
 		if !ok {
 			// one more occurrence of this metric
 			w.l.AddRef(id)
 		}
 
 		m[id] = val
+		mm[id] += val - v
+
 		return
 	}
 
 	if t > w.t0 {
-		// advance the buffer, decrementing counts for all entries in the
-		// maps we pass by
+		// advance the buffer, clearing all maps we pass by
 
 		for w.t0 < t {
 			w.t0++
@@ -72,24 +87,40 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 				w.idx = 0
 			}
 
-			m := w.epochs[w.idx]
-			if m != nil {
-				for id, _ := range m {
+			// TODO(dgryski): save the epoch map in a sync.Pool?
+			w.epochs[w.idx] = nil
+
+			if w.t0%60 == 0 {
+				w.midx++
+				if w.midx >= len(w.minutes) {
+					w.midx = 0
+				}
+
+				mm := w.minutes[w.midx]
+				for id, _ := range mm {
 					w.l.DelRef(id)
 				}
-				w.epochs[w.idx] = nil
+				w.minutes[w.midx] = nil
 			}
 		}
 
 		id := w.l.FindOrAdd(metric)
 
-		w.l.AddRef(id)
-
+		// TODO(dgryski): preallocate these maps to the size of one we just purged?
 		w.epochs[w.idx] = map[int]uint64{id: val}
+
+		if mm := w.minutes[w.midx]; mm == nil {
+			w.l.AddRef(id)
+			w.minutes[w.midx] = map[int]uint64{id: val}
+		} else {
+			_, ok := mm[id]
+			if !ok {
+				w.l.AddRef(id)
+			}
+			mm[id] += val
+		}
 		return
 	}
-
-	// TODO(dgryski): limit how far back we can update
 
 	// less common -- update the past
 	back := int(w.t0 - t)
@@ -98,7 +129,6 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		// too far in the past, ignore
 		return
 	}
-
 	idx := w.idx - back
 
 	if idx < 0 {
@@ -112,13 +142,28 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		w.epochs[idx] = m
 	}
 
+	midx := w.midx - back/60
+	if midx < 0 {
+		midx += len(w.minutes)
+	}
+
+	mm := w.minutes[midx]
+	if mm == nil {
+		mm = make(map[int]uint64)
+		w.minutes[midx] = mm
+	}
+
 	id := w.l.FindOrAdd(metric)
 
-	_, ok := m[id]
+	v := m[id]
+
+	_, ok := mm[id]
 	if !ok {
 		w.l.AddRef(id)
 	}
+
 	m[id] = val
+	mm[id] += val - v
 }
 
 type Fetched struct {
@@ -151,31 +196,54 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 		return nil
 	}
 
-	if min := w.t0 - int32(len(w.epochs)) + 1; from < min {
-		from = min
+	// if from >= t0-len(w.epochs), we can handle it entirely at second resolution
+	// otherwise, handle at minutely resolution
+
+	step := int32(1)
+	maps := w.epochs
+	idx := w.idx
+
+	if min := w.t0 - int32(len(maps)) + 1; from < min {
+		// switch to minute resolution
+		maps = w.minutes
+		step = 60
+		idx = w.midx
+
+		// check that we're still in range
+		if min = (w.t0 - w.t0%60) - int32(len(maps))*60 + 60; from < min {
+			from = min
+		}
 	}
 
-	idx := w.idx - int(w.t0-from)
+	idx -= int((w.t0 - from) / step)
 	if idx < 0 {
-		idx += len(w.epochs)
+		idx += len(maps)
 	}
 
-	points := (until - from + 1) // inclusive of 'until'
+	if until > w.t0 {
+		until = w.t0
+	}
+
+	from = from - (from % step)
+	until = until - (until % step)
+
+	points := (until - from + step) / step // inclusive of 'until'
+
 	r := &Fetched{
 		From:   from,
 		Until:  until,
-		Step:   1,
+		Step:   step,
 		Values: make([]float64, points),
 	}
 
-	l := len(w.epochs)
+	l := len(maps)
 
 	for p, t := 0, idx; p < int(points); p, t = p+1, t+1 {
 		if t >= l {
 			t = 0
 		}
 
-		m := w.epochs[t]
+		m := maps[t]
 		if v, ok := m[id]; ok {
 			r.Values[p] = float64(v)
 		} else {
@@ -202,6 +270,7 @@ func (g globByName) Swap(i, j int) {
 }
 
 func (g globByName) Less(i, j int) bool {
+
 	return g[i].Metric < g[j].Metric
 }
 
@@ -294,10 +363,10 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	glob := strings.Replace(prefix, ".", "/", -1) + ".wsp"
 
-	buckets := int(seconds)
+	buckets := int(seconds) / 60
 
-	idx := w.idx
-	l := len(w.epochs)
+	idx := w.midx
+	l := len(w.minutes)
 
 	idx -= buckets - 1
 	if idx < 0 {
@@ -308,7 +377,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	matchingGlobs := make(map[int]bool)
 	counts := make(map[int]uint64)
 	for i := 0; i < buckets; i++ {
-		m := w.epochs[idx]
+		m := w.minutes[idx]
 		for id, v := range m {
 			var matched, ok bool
 			if matched, ok = matchingGlobs[id]; !ok {
@@ -337,6 +406,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	countedKeys := keysByCount{keys: keys, counts: counts}
 
+	// TODO(dgryski): if keylen < countedKeys.Len(), don't bother with quickselect
 	keylen := 100
 	if keylen > countedKeys.Len() {
 		keylen = countedKeys.Len()

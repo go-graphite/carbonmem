@@ -23,6 +23,7 @@ import (
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 )
 
+// TODO(dgryski): support multiple Metrics stores sharded by top-level key
 var Metrics *carbonmem.Whisper
 
 func parseTopK(query string) (string, int32, bool) {
@@ -229,7 +230,8 @@ func graphiteServer(port int) {
 
 func main() {
 
-	wsize := flag.Int("w", 60, "window size")
+	wsize := flag.Int("w", 600, "window size")
+	esize := flag.Int("e", 60, "epoch window size")
 	epoch0 := flag.Int("epoch0", 0, "epoch0")
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
@@ -240,7 +242,7 @@ func main() {
 		*epoch0 = int(time.Now().Unix())
 	}
 
-	Metrics = carbonmem.NewWhisper(int32(*epoch0), *wsize)
+	Metrics = carbonmem.NewWhisper(int32(*epoch0), *esize, *wsize)
 
 	go graphiteServer(*gport)
 

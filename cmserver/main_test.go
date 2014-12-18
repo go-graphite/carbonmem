@@ -51,22 +51,22 @@ func TestParseTopK(t *testing.T) {
 
 func TestTopKFind(t *testing.T) {
 
-	Metrics = carbonmem.NewWhisper(100, 10)
+	Metrics = carbonmem.NewWhisper(120, 60, 600)
 
 	for _, m := range []struct {
 		epoch  int32
 		metric string
 		count  uint64
 	}{
-		{100, "foo.bar", 10},
-		{100, "foo.baz", 50},
-		{101, "foo.bar", 11},
-		{101, "foo.baz", 40},
+		{120, "foo.bar", 10},
+		{120, "foo.baz", 50},
+		{120 + 1*60, "foo.bar", 11},
+		{120 + 1*60, "foo.baz", 40},
 
-		{102, "foo.bar", 12},
-		{103, "foo.bar", 13},
-		{103, "foo.qux", 13},
-		{104, "foo.bar", 14},
+		{120 + 2*60, "foo.bar", 12},
+		{12 + 3*60, "foo.bar", 13},
+		{12 + 3*60, "foo.qux", 13},
+		{12 + 4*60, "foo.bar", 14},
 	} {
 		Metrics.Set(m.epoch, m.metric, m.count)
 	}
@@ -88,24 +88,24 @@ func TestTopKFind(t *testing.T) {
 		},
 
 		{
-			"foo.*.TopK.3s",
+			"foo.*.TopK.3m",
 			pb.GlobResponse{
-				Name: proto.String("foo.*.TopK.3s"),
+				Name: proto.String("foo.*.TopK.3m"),
 				Matches: []*pb.GlobMatch{
-					&pb.GlobMatch{Path: proto.String("foo.bar.TopK.3s"), IsLeaf: proto.Bool(true)},
-					&pb.GlobMatch{Path: proto.String("foo.qux.TopK.3s"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.bar.TopK.3m"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.qux.TopK.3m"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
 
 		{
-			"foo.*.TopK.5s",
+			"foo.*.TopK.5m",
 			pb.GlobResponse{
-				Name: proto.String("foo.*.TopK.5s"),
+				Name: proto.String("foo.*.TopK.5m"),
 				Matches: []*pb.GlobMatch{
-					&pb.GlobMatch{Path: proto.String("foo.baz.TopK.5s"), IsLeaf: proto.Bool(true)},
-					&pb.GlobMatch{Path: proto.String("foo.bar.TopK.5s"), IsLeaf: proto.Bool(true)},
-					&pb.GlobMatch{Path: proto.String("foo.qux.TopK.5s"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.baz.TopK.5m"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.bar.TopK.5m"), IsLeaf: proto.Bool(true)},
+					&pb.GlobMatch{Path: proto.String("foo.qux.TopK.5m"), IsLeaf: proto.Bool(true)},
 				},
 			},
 		},
@@ -128,22 +128,22 @@ func TestTopKFind(t *testing.T) {
 
 func TestTopKRender(t *testing.T) {
 
-	Metrics = carbonmem.NewWhisper(100, 10)
+	Metrics = carbonmem.NewWhisper(100, 10, 60)
 
 	for _, m := range []struct {
 		epoch  int32
 		metric string
 		count  uint64
 	}{
-		{100, "foo.bar", 10},
-		{100, "foo.baz", 50},
-		{101, "foo.bar", 11},
-		{101, "foo.baz", 40},
+		{120, "foo.bar", 10},
+		{120, "foo.baz", 50},
+		{121, "foo.bar", 11},
+		{121, "foo.baz", 40},
 
-		{102, "foo.bar", 12},
-		{103, "foo.bar", 13},
-		{103, "foo.qux", 13},
-		{104, "foo.bar", 14},
+		{122, "foo.bar", 12},
+		{123, "foo.bar", 13},
+		{123, "foo.qux", 13},
+		{124, "foo.bar", 14},
 	} {
 		Metrics.Set(m.epoch, m.metric, m.count)
 	}
@@ -156,11 +156,11 @@ func TestTopKRender(t *testing.T) {
 	}{
 		{
 			"foo.bar",
-			100, 104,
+			120, 124,
 			pb.FetchResponse{
 				Name:      proto.String("foo.bar"),
-				StartTime: proto.Int32(100),
-				StopTime:  proto.Int32(104),
+				StartTime: proto.Int32(120),
+				StopTime:  proto.Int32(124),
 				StepTime:  proto.Int32(1),
 				Values:    []float64{10, 11, 12, 13, 14},
 				IsAbsent:  []bool{false, false, false, false, false},
@@ -169,11 +169,11 @@ func TestTopKRender(t *testing.T) {
 
 		{
 			"foo.bar.TopK.3s",
-			100, 104,
+			120, 124,
 			pb.FetchResponse{
 				Name:      proto.String("foo.bar.TopK.3s"),
-				StartTime: proto.Int32(100),
-				StopTime:  proto.Int32(104),
+				StartTime: proto.Int32(120),
+				StopTime:  proto.Int32(124),
 				StepTime:  proto.Int32(1),
 				Values:    []float64{10, 11, 12, 13, 14},
 				IsAbsent:  []bool{false, false, false, false, false},
