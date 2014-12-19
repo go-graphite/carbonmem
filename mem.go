@@ -374,8 +374,9 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	}
 
 	// gather counts for all metrics in this time period
-	matchingGlobs := make(map[int]bool)
-	counts := make(map[int]uint64)
+	size := len(w.minutes[idx])
+	matchingGlobs := make(map[int]bool, size)
+	counts := make(map[int]uint64, size)
 	for i := 0; i < buckets; i++ {
 		m := w.minutes[idx]
 		for id, v := range m {
