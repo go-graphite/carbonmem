@@ -14,6 +14,7 @@ import (
 	_ "net/http/pprof"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"code.google.com/p/gogoprotobuf/proto"
@@ -22,9 +23,6 @@ import (
 
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 )
-
-// TODO(dgryski): support multiple Metrics stores sharded by top-level key
-var Metrics *carbonmem.Whisper
 
 func parseTopK(query string) (string, int32, bool) {
 
@@ -89,11 +87,24 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	var prefix, topk string
 	var seconds int32
 	var ok bool
-	if prefix, seconds, ok = parseTopK(query); ok {
-		topk = query[len(prefix):]
-		globs = Metrics.TopK(prefix, seconds)
+
+	var whispers []*carbonmem.Whisper
+
+	if strings.Count(query, ".") < metricConfig.prefix {
+		for _, m := range Metrics {
+			whispers = append(whispers, m)
+		}
 	} else {
-		globs = Metrics.Find(query)
+		whispers = append(whispers, whisperFetcher(metricConfig.prefix, query))
+	}
+
+	for _, metrics := range whispers {
+		if prefix, seconds, ok = parseTopK(query); ok {
+			topk = query[len(prefix):]
+			globs = append(globs, metrics.TopK(prefix, seconds)...)
+		} else {
+			globs = append(globs, metrics.Find(query)...)
+		}
 	}
 
 	response := pb.GlobResponse{
@@ -101,13 +112,18 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var matches []*pb.GlobMatch
+	paths := make(map[string]struct{}, len(globs))
 	for _, g := range globs {
 		// fix up metric name
-		m := pb.GlobMatch{
-			Path:   proto.String(g.Metric + topk),
-			IsLeaf: proto.Bool(g.IsLeaf),
+		metric := g.Metric + topk
+		if _, ok := paths[metric]; !ok {
+			m := pb.GlobMatch{
+				Path:   proto.String(g.Metric + topk),
+				IsLeaf: proto.Bool(g.IsLeaf),
+			}
+			matches = append(matches, &m)
+			paths[metric] = struct{}{}
 		}
-		matches = append(matches, &m)
 	}
 
 	response.Matches = matches
@@ -146,7 +162,8 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		metric = target
 	}
 
-	points := Metrics.Fetch(metric, int32(frint), int32(unint))
+	metrics := whisperFetcher(metricConfig.prefix, metric)
+	points := metrics.Fetch(metric, int32(frint), int32(unint))
 
 	if points == nil {
 		return
@@ -222,27 +239,76 @@ func graphiteServer(port int) {
 					continue
 				}
 
-				Metrics.Set(int32(epoch), fields[0], uint64(count))
+				metrics := whisperFetcher(metricConfig.prefix, fields[0])
+
+				metrics.Set(int32(epoch), fields[0], uint64(count))
 			}
 		}(conn)
 	}
 }
 
+var metricsLock sync.RWMutex
+var Metrics map[string]*carbonmem.Whisper
+
+var metricConfig struct {
+	windowSize int
+	epochSize  int
+	epoch0     int
+	prefix     int
+}
+
+func findNodePrefix(prefix int, metric string) string {
+
+	var found int
+	for i, c := range metric {
+		if c == '.' {
+			found++
+			if found >= prefix {
+				return metric[:i]
+			}
+		}
+	}
+	return metric
+}
+
+func whisperFetcher(nprefix int, metric string) *carbonmem.Whisper {
+
+	prefix := findNodePrefix(nprefix, metric)
+
+	metricsLock.RLock()
+	m, ok := Metrics[prefix]
+	metricsLock.RUnlock()
+
+	if !ok {
+		metricsLock.Lock()
+		m, ok = Metrics[prefix]
+		if !ok {
+			m = carbonmem.NewWhisper(int32(metricConfig.epoch0), metricConfig.epochSize, metricConfig.windowSize)
+			Metrics[prefix] = m
+		}
+		metricsLock.Unlock()
+	}
+
+	return m
+}
+
 func main() {
 
-	wsize := flag.Int("w", 600, "window size")
-	esize := flag.Int("e", 60, "epoch window size")
-	epoch0 := flag.Int("epoch0", 0, "epoch0")
+	flag.IntVar(&metricConfig.windowSize, "w", 600, "window size")
+	flag.IntVar(&metricConfig.epochSize, "e", 60, "epoch window size")
+	flag.IntVar(&metricConfig.epoch0, "epoch0", 0, "epoch0")
+	flag.IntVar(&metricConfig.prefix, "prefix", 0, "prefix nodes to shard on")
+
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
 
 	flag.Parse()
 
-	if *epoch0 == 0 {
-		*epoch0 = int(time.Now().Unix())
+	if metricConfig.epoch0 == 0 {
+		metricConfig.epoch0 = int(time.Now().Unix())
 	}
 
-	Metrics = carbonmem.NewWhisper(int32(*epoch0), *esize, *wsize)
+	Metrics = make(map[string]*carbonmem.Whisper)
 
 	go graphiteServer(*gport)
 

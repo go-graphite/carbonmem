@@ -51,7 +51,7 @@ func TestParseTopK(t *testing.T) {
 
 func TestTopKFind(t *testing.T) {
 
-	Metrics = carbonmem.NewWhisper(120, 60, 600)
+	metrics := carbonmem.NewWhisper(120, 60, 600)
 
 	for _, m := range []struct {
 		epoch  int32
@@ -68,8 +68,10 @@ func TestTopKFind(t *testing.T) {
 		{120 + 3*60, "foo.qux", 13},
 		{120 + 4*60, "foo.bar", 14},
 	} {
-		Metrics.Set(m.epoch, m.metric, m.count)
+		metrics.Set(m.epoch, m.metric, m.count)
 	}
+
+	Metrics = map[string]*carbonmem.Whisper{"foo": metrics}
 
 	for _, tt := range []struct {
 		query string
@@ -128,7 +130,7 @@ func TestTopKFind(t *testing.T) {
 
 func TestTopKRender(t *testing.T) {
 
-	Metrics = carbonmem.NewWhisper(100, 10, 60)
+	metrics := carbonmem.NewWhisper(100, 10, 60)
 
 	for _, m := range []struct {
 		epoch  int32
@@ -145,8 +147,10 @@ func TestTopKRender(t *testing.T) {
 		{123, "foo.qux", 13},
 		{124, "foo.bar", 14},
 	} {
-		Metrics.Set(m.epoch, m.metric, m.count)
+		metrics.Set(m.epoch, m.metric, m.count)
 	}
+
+	Metrics = map[string]*carbonmem.Whisper{"foo": metrics}
 
 	for _, tt := range []struct {
 		target string
@@ -192,6 +196,23 @@ func TestTopKRender(t *testing.T) {
 
 		if !reflect.DeepEqual(response, tt.want) {
 			t.Errorf("Render(%s,%d,%d)=%#v, want %#v", tt.target, tt.from, tt.until, spew.Sdump(response), spew.Sdump(tt.want))
+		}
+	}
+}
+
+func TestNodePrefix(t *testing.T) {
+
+	var tests = []struct {
+		metric string
+		n      int
+		want   string
+	}{
+		{"foo.bar.baz.qux", 3, "foo.bar.baz"},
+	}
+
+	for _, tt := range tests {
+		if got := findNodePrefix(tt.n, tt.metric); got != tt.want {
+			t.Errorf("findNodePrefix(%d, %q)=%q, want %q", tt.n, tt.metric, got, tt.want)
 		}
 	}
 }
