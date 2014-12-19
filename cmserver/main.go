@@ -95,7 +95,9 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 			whispers = append(whispers, m)
 		}
 	} else {
-		whispers = append(whispers, whisperFetcher(metricConfig.prefix, query))
+		if m := whisperFetch(metricConfig.prefix, query); m != nil {
+			whispers = append(whispers, m)
+		}
 	}
 
 	for _, metrics := range whispers {
@@ -162,7 +164,10 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		metric = target
 	}
 
-	metrics := whisperFetcher(metricConfig.prefix, metric)
+	metrics := whisperFetch(metricConfig.prefix, metric)
+	if metrics == nil {
+		return
+	}
 	points := metrics.Fetch(metric, int32(frint), int32(unint))
 
 	if points == nil {
@@ -239,7 +244,7 @@ func graphiteServer(port int) {
 					continue
 				}
 
-				metrics := whisperFetcher(metricConfig.prefix, fields[0])
+				metrics := whisperFetchOrCreate(metricConfig.prefix, fields[0])
 
 				metrics.Set(int32(epoch), fields[0], uint64(count))
 			}
@@ -271,15 +276,13 @@ func findNodePrefix(prefix int, metric string) string {
 	return metric
 }
 
-func whisperFetcher(nprefix int, metric string) *carbonmem.Whisper {
+func whisperFetchOrCreate(nprefix int, metric string) *carbonmem.Whisper {
 
-	prefix := findNodePrefix(nprefix, metric)
+	m := whisperFetch(nprefix, metric)
 
-	metricsLock.RLock()
-	m, ok := Metrics[prefix]
-	metricsLock.RUnlock()
-
-	if !ok {
+	if m == nil {
+		prefix := findNodePrefix(nprefix, metric)
+		var ok bool
 		metricsLock.Lock()
 		m, ok = Metrics[prefix]
 		if !ok {
@@ -288,6 +291,16 @@ func whisperFetcher(nprefix int, metric string) *carbonmem.Whisper {
 		}
 		metricsLock.Unlock()
 	}
+
+	return m
+}
+
+func whisperFetch(nprefix int, metric string) *carbonmem.Whisper {
+	prefix := findNodePrefix(nprefix, metric)
+
+	metricsLock.RLock()
+	m := Metrics[prefix]
+	metricsLock.RUnlock()
 
 	return m
 }
