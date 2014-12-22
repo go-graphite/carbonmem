@@ -13,14 +13,12 @@ import (
 	"github.com/wangjohn/quickselect"
 )
 
-type MetricID int
+type MetricID uint32
 
 // Whisper is an in-memory whisper-like store
 type Whisper struct {
 	sync.RWMutex
 	t0 int32
-
-	// TODO(dgryski): map[uint32]uint32 ?
 
 	idx    int
 	epochs []map[MetricID]uint64
