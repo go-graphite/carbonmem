@@ -13,6 +13,8 @@ import (
 	"github.com/wangjohn/quickselect"
 )
 
+type MetricID int
+
 // Whisper is an in-memory whisper-like store
 type Whisper struct {
 	sync.RWMutex
@@ -21,10 +23,10 @@ type Whisper struct {
 	// TODO(dgryski): map[uint32]uint32 ?
 
 	idx    int
-	epochs []map[int]uint64
+	epochs []map[MetricID]uint64
 
 	midx    int
-	minutes []map[int]uint64
+	minutes []map[MetricID]uint64
 
 	l *lookup
 }
@@ -33,11 +35,11 @@ func NewWhisper(t0 int32, ecap, cap int) *Whisper {
 
 	t0 = t0 - (t0 % 60)
 
-	epochs := make([]map[int]uint64, ecap)
-	epochs[0] = make(map[int]uint64)
+	epochs := make([]map[MetricID]uint64, ecap)
+	epochs[0] = make(map[MetricID]uint64)
 
-	minutes := make([]map[int]uint64, cap/60)
-	minutes[0] = make(map[int]uint64)
+	minutes := make([]map[MetricID]uint64, cap/60)
+	minutes[0] = make(map[MetricID]uint64)
 
 	return &Whisper{
 		t0:      t0,
@@ -107,11 +109,11 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		id := w.l.FindOrAdd(metric)
 
 		// TODO(dgryski): preallocate these maps to the size of one we just purged?
-		w.epochs[w.idx] = map[int]uint64{id: val}
+		w.epochs[w.idx] = map[MetricID]uint64{id: val}
 
 		if mm := w.minutes[w.midx]; mm == nil {
 			w.l.AddRef(id)
-			w.minutes[w.midx] = map[int]uint64{id: val}
+			w.minutes[w.midx] = map[MetricID]uint64{id: val}
 		} else {
 			_, ok := mm[id]
 			if !ok {
@@ -138,7 +140,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	m := w.epochs[idx]
 	if m == nil {
-		m = make(map[int]uint64)
+		m = make(map[MetricID]uint64)
 		w.epochs[idx] = m
 	}
 
@@ -149,7 +151,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	mm := w.minutes[midx]
 	if mm == nil {
-		mm = make(map[int]uint64)
+		mm = make(map[MetricID]uint64)
 		w.minutes[midx] = mm
 	}
 
@@ -339,8 +341,8 @@ func (w *Whisper) Find(query string) []Glob {
 }
 
 type keysByCount struct {
-	keys   []int
-	counts map[int]uint64
+	keys   []MetricID
+	counts map[MetricID]uint64
 }
 
 func (k keysByCount) Len() int {
@@ -375,8 +377,8 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	// gather counts for all metrics in this time period
 	size := len(w.minutes[idx])
-	matchingGlobs := make(map[int]bool, size)
-	counts := make(map[int]uint64, size)
+	matchingGlobs := make(map[MetricID]bool, size)
+	counts := make(map[MetricID]uint64, size)
 	for i := 0; i < buckets; i++ {
 		m := w.minutes[idx]
 		for id, v := range m {
@@ -400,7 +402,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 		}
 	}
 
-	var keys []int
+	var keys []MetricID
 	for k, _ := range counts {
 		keys = append(keys, k)
 	}
@@ -430,12 +432,12 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 type lookup struct {
 	// all metrics
-	keys  map[string]int
+	keys  map[string]MetricID
 	revs  []string
 	count int
 
 	// currently 'active'
-	active map[int]int
+	active map[MetricID]int
 	prefix *radix.Tree
 
 	pathidx trigram.Index
@@ -444,21 +446,21 @@ type lookup struct {
 
 func newLookup() *lookup {
 	return &lookup{
-		keys: make(map[string]int),
+		keys: make(map[string]MetricID),
 
-		active: make(map[int]int),
+		active: make(map[MetricID]int),
 		prefix: radix.New(),
 
 		pathidx: trigram.NewIndex(nil),
 	}
 }
 
-func (l *lookup) Find(key string) (int, bool) {
+func (l *lookup) Find(key string) (MetricID, bool) {
 	id, ok := l.keys[key]
 	return id, ok
 }
 
-func (l *lookup) FindOrAdd(key string) int {
+func (l *lookup) FindOrAdd(key string) MetricID {
 
 	id, ok := l.keys[key]
 
@@ -466,7 +468,7 @@ func (l *lookup) FindOrAdd(key string) int {
 		return id
 	}
 
-	id = l.count
+	id = MetricID(l.count)
 	l.count++
 
 	l.keys[key] = id
@@ -480,15 +482,15 @@ func (l *lookup) FindOrAdd(key string) int {
 	return id
 }
 
-func (l *lookup) Reverse(id int) string {
+func (l *lookup) Reverse(id MetricID) string {
 	return l.revs[id]
 }
 
-func (l *lookup) Path(id int) string {
+func (l *lookup) Path(id MetricID) string {
 	return l.paths[id]
 }
 
-func (l *lookup) AddRef(id int) {
+func (l *lookup) AddRef(id MetricID) {
 	v, ok := l.active[id]
 	if !ok {
 		l.prefix.Insert(l.revs[id], id)
@@ -497,7 +499,7 @@ func (l *lookup) AddRef(id int) {
 	l.active[id] = v + 1
 }
 
-func (l *lookup) DelRef(id int) {
+func (l *lookup) DelRef(id MetricID) {
 	l.active[id]--
 	if l.active[id] == 0 {
 		delete(l.active, id)
@@ -505,7 +507,7 @@ func (l *lookup) DelRef(id int) {
 	}
 }
 
-func (l *lookup) Active(id int) bool {
+func (l *lookup) Active(id MetricID) bool {
 	return l.active[id] != 0
 }
 
@@ -525,7 +527,7 @@ func (l *lookup) QueryPath(query string) []string {
 
 	for _, id := range ids {
 
-		p := l.paths[int(id)]
+		p := l.paths[MetricID(id)]
 
 		dir := filepath.Dir(p)
 
