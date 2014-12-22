@@ -325,9 +325,18 @@ func main() {
 
 	go graphiteServer(*gport)
 
-	http.HandleFunc("/metrics/find/", findHandler)
-	http.HandleFunc("/render/", renderHandler)
+	http.HandleFunc("/metrics/find/", accessHandler(findHandler))
+	http.HandleFunc("/render/", accessHandler(renderHandler))
 
 	log.Println("http server starting on port", *port)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
+}
+
+func accessHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		t0 := time.Now()
+		handler(w, r)
+		since := time.Since(t0)
+		log.Println(r.RequestURI, since.Nanoseconds()/int64(time.Millisecond))
+	}
 }
