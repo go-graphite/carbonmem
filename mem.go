@@ -14,6 +14,7 @@ import (
 )
 
 type MetricID uint32
+type Count uint32
 
 // Whisper is an in-memory whisper-like store
 type Whisper struct {
@@ -21,10 +22,10 @@ type Whisper struct {
 	t0 int32
 
 	idx    int
-	epochs []map[MetricID]uint64
+	epochs []map[MetricID]Count
 
 	midx    int
-	minutes []map[MetricID]uint64
+	minutes []map[MetricID]Count
 
 	l *lookup
 }
@@ -33,11 +34,11 @@ func NewWhisper(t0 int32, ecap, cap int) *Whisper {
 
 	t0 = t0 - (t0 % 60)
 
-	epochs := make([]map[MetricID]uint64, ecap)
-	epochs[0] = make(map[MetricID]uint64)
+	epochs := make([]map[MetricID]Count, ecap)
+	epochs[0] = make(map[MetricID]Count)
 
-	minutes := make([]map[MetricID]uint64, cap/60)
-	minutes[0] = make(map[MetricID]uint64)
+	minutes := make([]map[MetricID]Count, cap/60)
+	minutes[0] = make(map[MetricID]Count)
 
 	return &Whisper{
 		t0:      t0,
@@ -48,6 +49,8 @@ func NewWhisper(t0 int32, ecap, cap int) *Whisper {
 }
 
 func (w *Whisper) Set(t int32, metric string, val uint64) {
+
+	count := Count(val)
 
 	w.Lock()
 	defer w.Unlock()
@@ -71,8 +74,8 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 			w.l.AddRef(id)
 		}
 
-		m[id] = val
-		mm[id] += val - v
+		m[id] = count
+		mm[id] += count - v
 
 		return
 	}
@@ -107,17 +110,17 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		id := w.l.FindOrAdd(metric)
 
 		// TODO(dgryski): preallocate these maps to the size of one we just purged?
-		w.epochs[w.idx] = map[MetricID]uint64{id: val}
+		w.epochs[w.idx] = map[MetricID]Count{id: count}
 
 		if mm := w.minutes[w.midx]; mm == nil {
 			w.l.AddRef(id)
-			w.minutes[w.midx] = map[MetricID]uint64{id: val}
+			w.minutes[w.midx] = map[MetricID]Count{id: count}
 		} else {
 			_, ok := mm[id]
 			if !ok {
 				w.l.AddRef(id)
 			}
-			mm[id] += val
+			mm[id] += count
 		}
 		return
 	}
@@ -138,7 +141,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	m := w.epochs[idx]
 	if m == nil {
-		m = make(map[MetricID]uint64)
+		m = make(map[MetricID]Count)
 		w.epochs[idx] = m
 	}
 
@@ -149,7 +152,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	mm := w.minutes[midx]
 	if mm == nil {
-		mm = make(map[MetricID]uint64)
+		mm = make(map[MetricID]Count)
 		w.minutes[midx] = mm
 	}
 
@@ -162,8 +165,8 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 		w.l.AddRef(id)
 	}
 
-	m[id] = val
-	mm[id] += val - v
+	m[id] = count
+	mm[id] += count - v
 }
 
 type Fetched struct {
@@ -340,7 +343,7 @@ func (w *Whisper) Find(query string) []Glob {
 
 type keysByCount struct {
 	keys   []MetricID
-	counts map[MetricID]uint64
+	counts map[MetricID]Count
 }
 
 func (k keysByCount) Len() int {
@@ -376,7 +379,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	// gather counts for all metrics in this time period
 	size := len(w.minutes[idx])
 	matchingGlobs := make(map[MetricID]bool, size)
-	counts := make(map[MetricID]uint64, size)
+	counts := make(map[MetricID]Count, size)
 	for i := 0; i < buckets; i++ {
 		m := w.minutes[idx]
 		for id, v := range m {
