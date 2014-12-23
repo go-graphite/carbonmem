@@ -310,9 +310,12 @@ func whisperGlob(query string) []carbonmem.Glob {
 	var glob []carbonmem.Glob
 	for m := range Metrics {
 		qm := strings.Replace(m, ".", "/", slashes)
-		trim := strings.Index(qm, ".")
-		if match, err := filepath.Match(query, qm[:trim]); err == nil && match {
-			glob = append(glob, carbonmem.Glob{Metric: m[:trim]})
+		if trim := strings.Index(qm, "."); trim != -1 {
+			qm = qm[:trim]
+			m = m[:trim]
+		}
+		if match, err := filepath.Match(query, qm); err == nil && match {
+			glob = append(glob, carbonmem.Glob{Metric: m})
 		}
 	}
 
