@@ -253,7 +253,7 @@ type whispers struct {
 	prefix     int
 }
 
-var Whispers whispers = whispers{metrics: make(map[string]*carbonmem.Whisper)}
+var Whispers whispers
 
 func findNodePrefix(prefix int, metric string) string {
 
@@ -322,6 +322,8 @@ func (w *whispers) Glob(query string) []carbonmem.Glob {
 }
 
 func main() {
+
+	Whispers = whispers{metrics: make(map[string]*carbonmem.Whisper)}
 
 	flag.IntVar(&Whispers.windowSize, "w", 600, "window size")
 	flag.IntVar(&Whispers.epochSize, "e", 60, "epoch window size")
