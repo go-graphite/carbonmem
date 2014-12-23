@@ -87,15 +87,15 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 
 	var topk string
 
-	if strings.Count(query, ".") < metricConfig.prefix {
-		globs = whisperGlob(query)
+	if strings.Count(query, ".") < Whispers.prefix {
+		globs = Whispers.Glob(query)
 	} else {
-		var whispers []*carbonmem.Whisper
-		if m := whisperFetch(metricConfig.prefix, query); m != nil {
-			whispers = append(whispers, m)
+		var memw []*carbonmem.Whisper
+		if m := Whispers.Fetch(query); m != nil {
+			memw = append(memw, m)
 		}
 
-		for _, metrics := range whispers {
+		for _, metrics := range memw {
 			if prefix, seconds, ok := parseTopK(query); ok {
 				topk = query[len(prefix):]
 				globs = append(globs, metrics.TopK(prefix, seconds)...)
@@ -160,7 +160,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		metric = target
 	}
 
-	metrics := whisperFetch(metricConfig.prefix, metric)
+	metrics := Whispers.Fetch(metric)
 	if metrics == nil {
 		return
 	}
@@ -240,7 +240,7 @@ func graphiteServer(port int) {
 					continue
 				}
 
-				metrics := whisperFetchOrCreate(metricConfig.prefix, fields[0])
+				metrics := Whispers.FetchOrCreate(fields[0])
 
 				metrics.Set(int32(epoch), fields[0], uint64(count))
 			}
@@ -248,15 +248,17 @@ func graphiteServer(port int) {
 	}
 }
 
-var metricsLock sync.RWMutex
-var Metrics map[string]*carbonmem.Whisper
+type whispers struct {
+	sync.RWMutex
+	metrics map[string]*carbonmem.Whisper
 
-var metricConfig struct {
 	windowSize int
 	epochSize  int
 	epoch0     int
 	prefix     int
 }
+
+var Whispers whispers = whispers{metrics: make(map[string]*carbonmem.Whisper)}
 
 func findNodePrefix(prefix int, metric string) string {
 
@@ -272,43 +274,43 @@ func findNodePrefix(prefix int, metric string) string {
 	return metric
 }
 
-func whisperFetchOrCreate(nprefix int, metric string) *carbonmem.Whisper {
+func (w *whispers) FetchOrCreate(metric string) *carbonmem.Whisper {
 
-	m := whisperFetch(nprefix, metric)
+	m := w.Fetch(metric)
 
 	if m == nil {
-		prefix := findNodePrefix(nprefix, metric)
+		prefix := findNodePrefix(w.prefix, metric)
 		var ok bool
-		metricsLock.Lock()
-		m, ok = Metrics[prefix]
+		w.Lock()
+		m, ok = w.metrics[prefix]
 		if !ok {
-			m = carbonmem.NewWhisper(int32(metricConfig.epoch0), metricConfig.epochSize, metricConfig.windowSize)
-			Metrics[prefix] = m
+			m = carbonmem.NewWhisper(int32(w.epoch0), w.epochSize, w.windowSize)
+			w.metrics[prefix] = m
 		}
-		metricsLock.Unlock()
+		w.Unlock()
 	}
 
 	return m
 }
 
-func whisperFetch(nprefix int, metric string) *carbonmem.Whisper {
-	prefix := findNodePrefix(nprefix, metric)
+func (w *whispers) Fetch(metric string) *carbonmem.Whisper {
+	prefix := findNodePrefix(w.prefix, metric)
 
-	metricsLock.RLock()
-	m := Metrics[prefix]
-	metricsLock.RUnlock()
+	w.RLock()
+	m := w.metrics[prefix]
+	w.RUnlock()
 
 	return m
 }
 
-func whisperGlob(query string) []carbonmem.Glob {
+func (w *whispers) Glob(query string) []carbonmem.Glob {
 
 	query = strings.Replace(query, ".", "/", -1)
 	slashes := strings.Count(query, "/")
 
-	metricsLock.RLock()
+	w.RLock()
 	var glob []carbonmem.Glob
-	for m := range Metrics {
+	for m := range w.metrics {
 		qm := strings.Replace(m, ".", "/", slashes)
 		if trim := strings.Index(qm, "."); trim != -1 {
 			qm = qm[:trim]
@@ -319,28 +321,26 @@ func whisperGlob(query string) []carbonmem.Glob {
 		}
 	}
 
-	metricsLock.RUnlock()
+	w.RUnlock()
 
 	return glob
 }
 
 func main() {
 
-	flag.IntVar(&metricConfig.windowSize, "w", 600, "window size")
-	flag.IntVar(&metricConfig.epochSize, "e", 60, "epoch window size")
-	flag.IntVar(&metricConfig.epoch0, "epoch0", 0, "epoch0")
-	flag.IntVar(&metricConfig.prefix, "prefix", 0, "prefix nodes to shard on")
+	flag.IntVar(&Whispers.windowSize, "w", 600, "window size")
+	flag.IntVar(&Whispers.epochSize, "e", 60, "epoch window size")
+	flag.IntVar(&Whispers.epoch0, "epoch0", 0, "epoch0")
+	flag.IntVar(&Whispers.prefix, "prefix", 0, "prefix nodes to shard on")
 
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
 
 	flag.Parse()
 
-	if metricConfig.epoch0 == 0 {
-		metricConfig.epoch0 = int(time.Now().Unix())
+	if Whispers.epoch0 == 0 {
+		Whispers.epoch0 = int(time.Now().Unix())
 	}
-
-	Metrics = make(map[string]*carbonmem.Whisper)
 
 	go graphiteServer(*gport)
 

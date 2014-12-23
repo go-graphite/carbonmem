@@ -71,7 +71,7 @@ func TestTopKFind(t *testing.T) {
 		metrics.Set(m.epoch, m.metric, m.count)
 	}
 
-	Metrics = map[string]*carbonmem.Whisper{"foo": metrics}
+	Whispers.metrics = map[string]*carbonmem.Whisper{"foo": metrics}
 
 	for _, tt := range []struct {
 		query string
@@ -150,7 +150,7 @@ func TestTopKRender(t *testing.T) {
 		metrics.Set(m.epoch, m.metric, m.count)
 	}
 
-	Metrics = map[string]*carbonmem.Whisper{"foo": metrics}
+	Whispers.metrics = map[string]*carbonmem.Whisper{"foo": metrics}
 
 	for _, tt := range []struct {
 		target string
