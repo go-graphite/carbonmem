@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -84,28 +85,23 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 
 	var globs []carbonmem.Glob
 
-	var prefix, topk string
-	var seconds int32
-	var ok bool
+	var topk string
 
-	var whispers []*carbonmem.Whisper
-
-	if strings.Count(query, ".") < metricConfig.prefix {
-		for _, m := range Metrics {
-			whispers = append(whispers, m)
-		}
+	if strings.Count(query, ".") <= metricConfig.prefix {
+		globs = whisperGlob(query)
 	} else {
+		var whispers []*carbonmem.Whisper
 		if m := whisperFetch(metricConfig.prefix, query); m != nil {
 			whispers = append(whispers, m)
 		}
-	}
 
-	for _, metrics := range whispers {
-		if prefix, seconds, ok = parseTopK(query); ok {
-			topk = query[len(prefix):]
-			globs = append(globs, metrics.TopK(prefix, seconds)...)
-		} else {
-			globs = append(globs, metrics.Find(query)...)
+		for _, metrics := range whispers {
+			if prefix, seconds, ok := parseTopK(query); ok {
+				topk = query[len(prefix):]
+				globs = append(globs, metrics.TopK(prefix, seconds)...)
+			} else {
+				globs = append(globs, metrics.Find(query)...)
+			}
 		}
 	}
 
@@ -303,6 +299,26 @@ func whisperFetch(nprefix int, metric string) *carbonmem.Whisper {
 	metricsLock.RUnlock()
 
 	return m
+}
+
+func whisperGlob(query string) []carbonmem.Glob {
+
+	query = strings.Replace(query, ".", "/", -1)
+	slashes := strings.Count(query, "/")
+
+	metricsLock.RLock()
+	var glob []carbonmem.Glob
+	for m := range Metrics {
+		qm := strings.Replace(m, ".", "/", slashes)
+		trim := strings.Index(qm, ".")
+		if match, err := filepath.Match(query, qm[:trim]); err == nil && match {
+			glob = append(glob, carbonmem.Glob{Metric: m[:trim]})
+		}
+	}
+
+	metricsLock.RUnlock()
+
+	return glob
 }
 
 func main() {
