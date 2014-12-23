@@ -90,17 +90,12 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	if strings.Count(query, ".") < Whispers.prefix {
 		globs = Whispers.Glob(query)
 	} else {
-		var memw []*carbonmem.Whisper
 		if m := Whispers.Fetch(query); m != nil {
-			memw = append(memw, m)
-		}
-
-		for _, metrics := range memw {
 			if prefix, seconds, ok := parseTopK(query); ok {
 				topk = query[len(prefix):]
-				globs = append(globs, metrics.TopK(prefix, seconds)...)
+				globs = m.TopK(prefix, seconds)
 			} else {
-				globs = append(globs, metrics.Find(query)...)
+				globs = m.Find(query)
 			}
 		}
 	}
