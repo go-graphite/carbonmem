@@ -87,7 +87,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 
 	var topk string
 
-	if strings.Count(query, ".") <= metricConfig.prefix {
+	if strings.Count(query, ".") < metricConfig.prefix {
 		globs = whisperGlob(query)
 	} else {
 		var whispers []*carbonmem.Whisper
