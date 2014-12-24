@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"testing"
 
 	"code.google.com/p/gogoprotobuf/proto"
@@ -215,4 +216,59 @@ func TestNodePrefix(t *testing.T) {
 			t.Errorf("findNodePrefix(%d, %q)=%q, want %q", tt.n, tt.metric, got, tt.want)
 		}
 	}
+}
+
+func TestWhisperGlob(t *testing.T) {
+
+	var whispers = whispers{
+		metrics: map[string]*carbonmem.Whisper{
+			"foo.bar.baz.qux": nil,
+			"foo.bar.boz.qux": nil,
+			"foo.bar.baz.zot": nil,
+		},
+	}
+
+	for _, tt := range []struct {
+		query string
+		want  []string
+	}{
+		{
+			"foo.*",
+			[]string{
+				"foo.bar",
+				"foo.bar",
+				"foo.bar",
+			},
+		},
+		{
+			"foo.bar.*",
+			[]string{
+				"foo.bar.baz",
+				"foo.bar.baz",
+				"foo.bar.boz",
+			},
+		},
+		{
+			"foo.bar.b*z.qux",
+			[]string{
+				"foo.bar.baz.qux",
+				"foo.bar.boz.qux",
+			},
+		},
+	} {
+
+		got := whispers.Glob(tt.query)
+
+		var strs []string
+		for _, g := range got {
+			strs = append(strs, g.Metric)
+		}
+
+		sort.Strings(strs)
+
+		if !reflect.DeepEqual(strs, tt.want) {
+			t.Errorf("Whispers.Glob(%s)=%v, want %v", tt.query, strs, tt.want)
+		}
+	}
+
 }
