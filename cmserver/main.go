@@ -5,7 +5,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	_ "expvar"
+	"expvar"
 	"flag"
 	"log"
 	"math"
@@ -24,6 +24,8 @@ import (
 
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 )
+
+var BuildVersion = "(development build)"
 
 func parseTopK(query string) (string, int32, bool) {
 
@@ -334,6 +336,9 @@ func main() {
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
 
 	flag.Parse()
+
+	expvar.NewString("BuildVersion").Set(BuildVersion)
+	log.Println("starting carbonmem", BuildVersion)
 
 	if Whispers.epoch0 == 0 {
 		Whispers.epoch0 = int(time.Now().Unix())
