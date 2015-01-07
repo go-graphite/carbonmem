@@ -332,23 +332,15 @@ func (w *Whisper) Find(query string) []Glob {
 	return response
 }
 
+// sort by count, descending
 type keysByCount struct {
 	keys   []MetricID
 	counts map[MetricID]Count
 }
 
-func (k keysByCount) Len() int {
-	return len(k.keys)
-}
-
-func (k keysByCount) Swap(i, j int) {
-	k.keys[i], k.keys[j] = k.keys[j], k.keys[i]
-}
-
-func (k keysByCount) Less(i, j int) bool {
-	// actually "GreaterThan"
-	return k.counts[k.keys[i]] > k.counts[k.keys[j]]
-}
+func (k keysByCount) Len() int           { return len(k.keys) }
+func (k keysByCount) Swap(i, j int)      { k.keys[i], k.keys[j] = k.keys[j], k.keys[i] }
+func (k keysByCount) Less(i, j int) bool { return k.counts[k.keys[i]] > k.counts[k.keys[j]] }
 
 func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
