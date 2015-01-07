@@ -46,8 +46,8 @@ func TestMemStore(t *testing.T) {
 	}
 
 	id, ok := w.l.Find("foo")
-	if !ok {
-		t.Errorf("foo is an unknown metric")
+	if ok {
+		t.Errorf("foo not pruned from known keys")
 	}
 
 	if w.l.Active(id) {

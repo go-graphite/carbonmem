@@ -487,6 +487,7 @@ func (l *lookup) DelRef(id MetricID) {
 	l.active[id]--
 	if l.active[id] == 0 {
 		delete(l.active, id)
+		delete(l.keys, l.revs[id])
 		l.prefix.Delete(l.revs[id])
 		path := strings.Replace(l.paths[id], ".", "/", -1) + ".wsp"
 		l.paths[id] = ""
