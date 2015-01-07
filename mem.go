@@ -264,18 +264,9 @@ type Glob struct {
 
 type globByName []Glob
 
-func (g globByName) Len() int {
-	return len(g)
-}
-
-func (g globByName) Swap(i, j int) {
-	g[i], g[j] = g[j], g[i]
-}
-
-func (g globByName) Less(i, j int) bool {
-
-	return g[i].Metric < g[j].Metric
-}
+func (g globByName) Len() int           { return len(g) }
+func (g globByName) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
+func (g globByName) Less(i, j int) bool { return g[i].Metric < g[j].Metric }
 
 // TODO(dgryski): this needs most of the logic in grobian/carbsonerver:findHandler()
 
