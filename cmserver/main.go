@@ -221,6 +221,7 @@ func graphiteServer(port int) {
 		go func(c net.Conn) {
 			scanner := bufio.NewScanner(c)
 			for scanner.Scan() {
+				// TODO(dgryski): under normal load, this is the only call that shows up in the profiles
 				fields := strings.Fields(scanner.Text())
 				if len(fields) != 3 {
 					continue
