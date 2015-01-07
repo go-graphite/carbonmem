@@ -335,6 +335,7 @@ func main() {
 
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
+	verbose := flag.Bool("v", false, "verbose logging")
 
 	flag.Parse()
 
@@ -357,14 +358,17 @@ func main() {
 
 	go graphiteServer(*gport)
 
-	http.HandleFunc("/metrics/find/", accessHandler(findHandler))
-	http.HandleFunc("/render/", accessHandler(renderHandler))
+	http.HandleFunc("/metrics/find/", accessHandler(*verbose, findHandler))
+	http.HandleFunc("/render/", accessHandler(*verbose, renderHandler))
 
 	log.Println("http server starting on port", *port)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
 }
 
-func accessHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+func accessHandler(verbose bool, handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	if !verbose {
+		return handler
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		t0 := time.Now()
 		handler(w, r)
