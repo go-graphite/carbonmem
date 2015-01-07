@@ -341,6 +341,16 @@ func main() {
 	expvar.NewString("BuildVersion").Set(BuildVersion)
 	log.Println("starting carbonmem", BuildVersion)
 
+	expvar.Publish("Whispers", expvar.Func(func() interface{} {
+		m := make(map[string]int)
+		Whispers.RLock()
+		for k, v := range Whispers.metrics {
+			m[k] = v.Len()
+		}
+		Whispers.RUnlock()
+		return m
+	}))
+
 	if Whispers.epoch0 == 0 {
 		Whispers.epoch0 = int(time.Now().Unix())
 	}
