@@ -500,9 +500,9 @@ func (l *lookup) DelRef(id MetricID) {
 		delete(l.active, id)
 		delete(l.keys, l.revs[id])
 		l.prefix.Delete(l.revs[id])
-		path := strings.Replace(l.paths[id], ".", "/", -1) + ".wsp"
+		l.revs[id] = ""
+		l.pathidx.Delete(l.paths[id], trigram.DocID(id))
 		l.paths[id] = ""
-		l.pathidx.Delete(path, trigram.DocID(id))
 	}
 }
 
