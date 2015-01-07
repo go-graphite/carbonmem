@@ -414,6 +414,13 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	return response
 }
 
+func (w *Whisper) Len() int {
+	w.RLock()
+	l := w.l.Len()
+	w.RUnlock()
+	return l
+}
+
 type lookup struct {
 	// all metrics
 	keys  map[string]MetricID
@@ -437,6 +444,10 @@ func newLookup() *lookup {
 
 		pathidx: trigram.NewIndex(nil),
 	}
+}
+
+func (l *lookup) Len() int {
+	return len(l.keys)
 }
 
 func (l *lookup) Find(key string) (MetricID, bool) {
