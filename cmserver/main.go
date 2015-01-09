@@ -19,10 +19,9 @@ import (
 	"time"
 
 	"code.google.com/p/gogoprotobuf/proto"
+	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 
 	"github.com/dgryski/carbonmem"
-
-	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 )
 
 var BuildVersion = "(development build)"
