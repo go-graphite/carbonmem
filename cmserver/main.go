@@ -284,7 +284,7 @@ func (w *whispers) FetchOrCreate(metric string) *carbonmem.Whisper {
 		w.Lock()
 		m, ok = w.metrics[prefix]
 		if !ok {
-			m = carbonmem.NewWhisper(int32(w.epoch0), w.epochSize, w.windowSize)
+			m = carbonmem.NewWhisper(int32(w.epoch0), w.epochSize, w.windowSize, carbonmem.TrigramCutoff(100000))
 			w.metrics[prefix] = m
 		}
 		w.Unlock()

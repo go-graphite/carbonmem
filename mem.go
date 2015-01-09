@@ -30,7 +30,7 @@ type Whisper struct {
 	l *lookup
 }
 
-func NewWhisper(t0 int32, ecap, cap int) *Whisper {
+func NewWhisper(t0 int32, ecap, cap int, options ...func(*Whisper) error) *Whisper {
 
 	t0 = t0 - (t0 % 60)
 
@@ -40,11 +40,24 @@ func NewWhisper(t0 int32, ecap, cap int) *Whisper {
 	minutes := make([]map[MetricID]Count, cap/60)
 	minutes[0] = make(map[MetricID]Count)
 
-	return &Whisper{
+	w := &Whisper{
 		t0:      t0,
 		epochs:  epochs,
 		minutes: minutes,
 		l:       newLookup(),
+	}
+
+	for _, o := range options {
+		o(w)
+	}
+
+	return w
+}
+
+func TrigramCutoff(cutoff int) func(*Whisper) error {
+	return func(w *Whisper) error {
+		w.l.trigramCutoff = cutoff
+		return nil
 	}
 }
 
@@ -433,6 +446,9 @@ type lookup struct {
 
 	pathidx trigram.Index
 	paths   []string
+
+	// when do we stop indexing metrics with trigrams?
+	trigramCutoff int
 }
 
 func newLookup() *lookup {
@@ -470,9 +486,13 @@ func (l *lookup) FindOrAdd(key string) MetricID {
 	l.revs = append(l.revs, key)
 
 	path := strings.Replace(key, ".", "/", -1) + ".wsp"
-
-	l.pathidx.Insert(path, trigram.DocID(id))
 	l.paths = append(l.paths, path)
+
+	if l.pathidx != nil && (l.trigramCutoff == 0 || len(l.keys) < l.trigramCutoff) {
+		l.pathidx.Insert(path, trigram.DocID(id))
+	} else {
+		l.pathidx = nil
+	}
 
 	return id
 }
@@ -501,7 +521,9 @@ func (l *lookup) DelRef(id MetricID) {
 		delete(l.keys, l.revs[id])
 		l.prefix.Delete(l.revs[id])
 		l.revs[id] = ""
-		l.pathidx.Delete(l.paths[id], trigram.DocID(id))
+		if l.pathidx != nil {
+			l.pathidx.Delete(l.paths[id], trigram.DocID(id))
+		}
 		l.paths[id] = ""
 	}
 }
@@ -515,6 +537,10 @@ func (l *lookup) Prefix(query string, fn radix.WalkFn) {
 }
 
 func (l *lookup) QueryPath(query string) []string {
+
+	if l.pathidx == nil {
+		return nil
+	}
 
 	fquery := query + ".wsp"
 
