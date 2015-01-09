@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"expvar"
 	"flag"
+	"io"
 	"log"
 	"math"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,6 +24,7 @@ import (
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 
 	"github.com/dgryski/carbonmem"
+	"github.com/lestrrat/go-file-rotatelogs"
 )
 
 var BuildVersion = "(development build)"
@@ -335,8 +338,23 @@ func main() {
 	port := flag.Int("p", 8001, "port to listen on (http)")
 	gport := flag.Int("gp", 2003, "port to listen on (graphite)")
 	verbose := flag.Bool("v", false, "verbose logging")
+	logdir := flag.String("logdir", "/var/log/carbonmem/", "logging directory")
+	logtostdout := flag.Bool("stdout", false, "log also to stdout")
 
 	flag.Parse()
+
+	rl := rotatelogs.NewRotateLogs(
+		*logdir + "/carbonmem.%Y%m%d%H%M.log",
+	)
+
+	// Optional fields must be set afterwards
+	rl.LinkName = *logdir + "/carbonmem.log"
+
+	if *logtostdout {
+		log.SetOutput(io.MultiWriter(os.Stdout, rl))
+	} else {
+		log.SetOutput(rl)
+	}
 
 	expvar.NewString("BuildVersion").Set(BuildVersion)
 	log.Println("starting carbonmem", BuildVersion)
