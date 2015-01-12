@@ -29,6 +29,14 @@ import (
 
 var BuildVersion = "(development build)"
 
+var Metrics = struct {
+	FindRequests  *expvar.Int
+	FetchRequests *expvar.Int
+}{
+	FindRequests:  expvar.NewInt("findRequests"),
+	FetchRequests: expvar.NewInt("fetchRequests"),
+}
+
 func parseTopK(query string) (string, int32, bool) {
 
 	// prefix.blah.*.TopK.10m  => "prefix.blah.*", 600, true
@@ -78,6 +86,8 @@ func parseTopK(query string) (string, int32, bool) {
 }
 
 func findHandler(w http.ResponseWriter, req *http.Request) {
+
+	Metrics.FindRequests.Add(1)
 
 	query := req.FormValue("query")
 	format := req.FormValue("format")
@@ -138,6 +148,8 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func renderHandler(w http.ResponseWriter, req *http.Request) {
+
+	Metrics.FetchRequests.Add(1)
 
 	target := req.FormValue("target")
 	format := req.FormValue("format")
