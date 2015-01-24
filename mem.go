@@ -444,6 +444,8 @@ type lookup struct {
 	active map[MetricID]int
 	prefix *radix.Tree
 
+	free []MetricID
+
 	pathidx trigram.Index
 	paths   []string
 
@@ -479,8 +481,12 @@ func (l *lookup) FindOrAdd(key string) MetricID {
 		return id
 	}
 
-	id = MetricID(l.count)
-	l.count++
+	if len(l.free) == 0 {
+		id = MetricID(l.count)
+		l.count++
+	} else {
+		id, l.free = l.free[0], l.free[1:]
+	}
 
 	l.keys[key] = id
 	l.revs = append(l.revs, key)
@@ -525,6 +531,7 @@ func (l *lookup) DelRef(id MetricID) {
 			l.pathidx.Delete(l.paths[id], trigram.DocID(id))
 		}
 		l.paths[id] = ""
+		l.free = append(l.free, id)
 	}
 }
 
