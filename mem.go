@@ -484,12 +484,13 @@ func (l *lookup) FindOrAdd(key string) MetricID {
 	if len(l.free) == 0 {
 		id = MetricID(l.count)
 		l.count++
+		l.revs = append(l.revs, key)
 	} else {
 		id, l.free = l.free[0], l.free[1:]
+		l.revs[id] = key
 	}
 
 	l.keys[key] = id
-	l.revs = append(l.revs, key)
 
 	path := strings.Replace(key, ".", "/", -1) + ".wsp"
 	l.paths = append(l.paths, path)
