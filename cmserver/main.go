@@ -394,7 +394,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
 }
 
-func accessHandler(verbose bool, handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+func accessHandler(verbose bool, handler http.HandlerFunc) http.HandlerFunc {
 	if !verbose {
 		return handler
 	}
