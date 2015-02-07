@@ -35,8 +35,13 @@ func TestMemStore(t *testing.T) {
 
 	w := NewWhisper(100, 10, 120)
 
+	var fooid MetricID = math.MaxUint32
+
 	for _, tt := range tests {
 		w.Set(tt.t, tt.metric, tt.count)
+		if fooid == math.MaxUint32 {
+			fooid, _ = w.l.Find("foo")
+		}
 		if tt.expected != nil {
 			r := w.Fetch(tt.metric, tt.from, tt.until)
 			if !nearlyEqual(r.Values, tt.expected) {
@@ -45,13 +50,14 @@ func TestMemStore(t *testing.T) {
 		}
 	}
 
-	id, ok := w.l.Find("foo")
-	if ok {
+	if _, ok := w.l.Find("foo"); ok {
 		t.Errorf("foo not pruned from known keys")
 	}
 
-	if w.l.Active(id) {
-		t.Errorf("`foo' wasn't cleared from 'active'")
+	w.Set(305, "baz", 1)
+	bazid, ok := w.l.Find("baz")
+	if !ok || bazid != fooid {
+		t.Errorf("`baz` did not reuse fooid: got (%v,%v), want %v", bazid, ok, fooid)
 	}
 }
 
