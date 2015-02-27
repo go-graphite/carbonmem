@@ -33,7 +33,7 @@ func TestMemStore(t *testing.T) {
 		{"bar", 305, 33, 120, 300, []float64{22, 33}},
 	}
 
-	w := NewWhisper(100, 10, 120)
+	w := NewWhisper(100, 10, 120, TrigramCutoff(1))
 
 	var fooid MetricID = math.MaxUint32
 

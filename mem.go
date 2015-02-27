@@ -481,21 +481,24 @@ func (l *lookup) FindOrAdd(key string) MetricID {
 		return id
 	}
 
-	if len(l.free) == 0 {
+	useTrigramIndex := l.pathidx != nil && (l.trigramCutoff == 0 || len(l.keys) < l.trigramCutoff)
+
+	path := strings.Replace(key, ".", "/", -1) + ".wsp"
+
+	if len(l.free) == 0 || useTrigramIndex {
 		id = MetricID(l.count)
 		l.count++
 		l.revs = append(l.revs, key)
+		l.paths = append(l.paths, path)
 	} else {
 		id, l.free = l.free[0], l.free[1:]
 		l.revs[id] = key
+		l.paths[id] = path
 	}
 
 	l.keys[key] = id
 
-	path := strings.Replace(key, ".", "/", -1) + ".wsp"
-	l.paths = append(l.paths, path)
-
-	if l.pathidx != nil && (l.trigramCutoff == 0 || len(l.keys) < l.trigramCutoff) {
+	if useTrigramIndex {
 		l.pathidx.Insert(path, trigram.DocID(id))
 	} else {
 		l.pathidx = nil
