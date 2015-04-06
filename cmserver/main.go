@@ -256,6 +256,9 @@ func graphiteServer(port int) {
 
 				metrics.Set(int32(epoch), fields[0], uint64(count))
 			}
+			if err := scanner.Err(); err != nil {
+				log.Printf("graphite server: error during scan: %v", err)
+			}
 		}(conn)
 	}
 }
