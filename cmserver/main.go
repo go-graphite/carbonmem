@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"code.google.com/p/gogoprotobuf/proto"
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
+	"github.com/gogo/protobuf/proto"
 
 	"github.com/dgryski/carbonmem"
 	"github.com/lestrrat/go-file-rotatelogs"

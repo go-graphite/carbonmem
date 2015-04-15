@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"code.google.com/p/gogoprotobuf/proto"
+	"github.com/gogo/protobuf/proto"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/dgryski/carbonmem"
