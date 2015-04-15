@@ -116,6 +116,10 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	w.Write(b)
 }
 
+func hasMetaCharacters(query string) bool {
+	return strings.IndexByte(query, '*') != -1 || strings.IndexByte(query, '[') != -1 || strings.IndexByte(query, '?') != -1
+}
+
 func findMetrics(query string) []*pb.GlobMatch {
 	var topk string
 
@@ -127,7 +131,11 @@ func findMetrics(query string) []*pb.GlobMatch {
 		if m := Whispers.Fetch(query); m != nil {
 			if prefix, seconds, ok := parseTopK(query); ok {
 				topk = query[len(prefix):]
-				globs = m.TopK(prefix, seconds)
+				if hasMetaCharacters(query) {
+					globs = m.TopK(prefix, seconds)
+				} else {
+					globs = m.Find(prefix)
+				}
 			} else {
 				globs = m.Find(query)
 			}

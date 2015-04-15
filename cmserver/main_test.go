@@ -157,31 +157,39 @@ func TestTopKRender(t *testing.T) {
 		target string
 		from   int32
 		until  int32
-		want   pb.FetchResponse
+		want   pb.MultiFetchResponse
 	}{
 		{
 			"foo.bar",
 			120, 124,
-			pb.FetchResponse{
-				Name:      proto.String("foo.bar"),
-				StartTime: proto.Int32(120),
-				StopTime:  proto.Int32(124),
-				StepTime:  proto.Int32(1),
-				Values:    []float64{10, 11, 12, 13, 14},
-				IsAbsent:  []bool{false, false, false, false, false},
+			pb.MultiFetchResponse{
+				Metrics: []*pb.FetchResponse{
+					&pb.FetchResponse{
+						Name:      proto.String("foo.bar"),
+						StartTime: proto.Int32(120),
+						StopTime:  proto.Int32(124),
+						StepTime:  proto.Int32(1),
+						Values:    []float64{10, 11, 12, 13, 14},
+						IsAbsent:  []bool{false, false, false, false, false},
+					},
+				},
 			},
 		},
 
 		{
 			"foo.bar.TopK.3s",
 			120, 124,
-			pb.FetchResponse{
-				Name:      proto.String("foo.bar.TopK.3s"),
-				StartTime: proto.Int32(120),
-				StopTime:  proto.Int32(124),
-				StepTime:  proto.Int32(1),
-				Values:    []float64{10, 11, 12, 13, 14},
-				IsAbsent:  []bool{false, false, false, false, false},
+			pb.MultiFetchResponse{
+				Metrics: []*pb.FetchResponse{
+					&pb.FetchResponse{
+						Name:      proto.String("foo.bar.TopK.3s"),
+						StartTime: proto.Int32(120),
+						StopTime:  proto.Int32(124),
+						StepTime:  proto.Int32(1),
+						Values:    []float64{10, 11, 12, 13, 14},
+						IsAbsent:  []bool{false, false, false, false, false},
+					},
+				},
 			},
 		},
 	} {
@@ -191,7 +199,7 @@ func TestTopKRender(t *testing.T) {
 
 		renderHandler(w, req)
 
-		var response pb.FetchResponse
+		var response pb.MultiFetchResponse
 
 		json.Unmarshal(w.Body.Bytes(), &response)
 
