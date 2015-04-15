@@ -97,9 +97,29 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var globs []carbonmem.Glob
+	matches := findMetrics(query)
 
+	response := pb.GlobResponse{
+		Name:    &query,
+		Matches: matches,
+	}
+
+	var b []byte
+	switch format {
+	case "json":
+		w.Header().Set("Content-Type", "application/json")
+		b, _ = json.Marshal(response)
+	case "protobuf":
+		w.Header().Set("Content-Type", "application/protobuf")
+		b, _ = proto.Marshal(&response)
+	}
+	w.Write(b)
+}
+
+func findMetrics(query string) []*pb.GlobMatch {
 	var topk string
+
+	var globs []carbonmem.Glob
 
 	if strings.Count(query, ".") < Whispers.prefix {
 		globs = Whispers.Glob(query)
@@ -112,10 +132,6 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 				globs = m.Find(query)
 			}
 		}
-	}
-
-	response := pb.GlobResponse{
-		Name: &query,
 	}
 
 	var matches []*pb.GlobMatch
@@ -133,18 +149,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	response.Matches = matches
-
-	var b []byte
-	switch format {
-	case "json":
-		w.Header().Set("Content-Type", "application/json")
-		b, _ = json.Marshal(response)
-	case "protobuf":
-		w.Header().Set("Content-Type", "application/protobuf")
-		b, _ = proto.Marshal(&response)
-	}
-	w.Write(b)
+	return matches
 }
 
 func renderHandler(w http.ResponseWriter, req *http.Request) {
@@ -164,56 +169,66 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var metric string
-	if prefix, _, ok := parseTopK(target); ok {
-		metric = prefix
-	} else {
-		metric = target
-	}
+	matches := findMetrics(target)
 
-	metrics := Whispers.Fetch(metric)
-	if metrics == nil {
-		return
-	}
-	points := metrics.Fetch(metric, int32(frint), int32(unint))
+	var multi pb.MultiFetchResponse
 
-	if points == nil {
-		return
-	}
+	for _, m := range matches {
 
-	fromTime := int32(points.From)
-	untilTime := int32(points.Until)
-	step := int32(points.Step)
-	response := pb.FetchResponse{
-		Name:      &target,
-		StartTime: &fromTime,
-		StopTime:  &untilTime,
-		StepTime:  &step,
-		Values:    make([]float64, len(points.Values)),
-		IsAbsent:  make([]bool, len(points.Values)),
-	}
+		target := m.GetPath()
 
-	for i, p := range points.Values {
-		if math.IsNaN(p) {
-			response.Values[i] = 0
-			response.IsAbsent[i] = true
+		var metric string
+		if prefix, _, ok := parseTopK(target); ok {
+			metric = prefix
 		} else {
-			response.Values[i] = p
-			response.IsAbsent[i] = false
+			metric = target
 		}
+
+		metrics := Whispers.Fetch(metric)
+		if metrics == nil {
+			continue
+		}
+		points := metrics.Fetch(metric, int32(frint), int32(unint))
+
+		if points == nil {
+			continue
+		}
+
+		fromTime := int32(points.From)
+		untilTime := int32(points.Until)
+		step := int32(points.Step)
+		response := pb.FetchResponse{
+			Name:      &target,
+			StartTime: &fromTime,
+			StopTime:  &untilTime,
+			StepTime:  &step,
+			Values:    make([]float64, len(points.Values)),
+			IsAbsent:  make([]bool, len(points.Values)),
+		}
+
+		for i, p := range points.Values {
+			if math.IsNaN(p) {
+				response.Values[i] = 0
+				response.IsAbsent[i] = true
+			} else {
+				response.Values[i] = p
+				response.IsAbsent[i] = false
+			}
+		}
+
+		multi.Metrics = append(multi.Metrics, &response)
 	}
 
 	var b []byte
 	switch format {
 	case "json":
 		w.Header().Set("Content-Type", "application/json")
-		b, _ = json.Marshal(response)
+		b, _ = json.Marshal(multi)
 	case "protobuf":
 		w.Header().Set("Content-Type", "application/protobuf")
-		b, _ = proto.Marshal(&response)
+		b, _ = proto.Marshal(&multi)
 	}
 	w.Write(b)
-
 }
 
 func graphiteServer(port int) {
