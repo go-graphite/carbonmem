@@ -362,7 +362,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	glob := strings.Replace(prefix, ".", "/", -1) + ".wsp"
 
-	buckets := int(seconds) / 60
+	buckets := int(seconds+59) / 60
 
 	idx := w.midx
 	l := len(w.minutes)
