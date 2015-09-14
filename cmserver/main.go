@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"expvar"
 	"flag"
 	"io"
@@ -258,32 +259,85 @@ func graphiteServer(port int) {
 		go func(c net.Conn) {
 			scanner := bufio.NewScanner(c)
 			for scanner.Scan() {
-				// TODO(dgryski): under normal load, this is the only call that shows up in the profiles
-				fields := strings.Fields(scanner.Text())
-				if len(fields) != 3 {
-					continue
-				}
-
-				// metric count epoch
-				count, err := strconv.Atoi(fields[1])
+				metric, count, epoch, err := parseGraphite(scanner.Bytes())
 				if err != nil {
 					continue
 				}
 
-				epoch, err := strconv.Atoi(fields[2])
-				if err != nil {
-					continue
-				}
+				metrics := Whispers.FetchOrCreate(metric)
 
-				metrics := Whispers.FetchOrCreate(fields[0])
-
-				metrics.Set(int32(epoch), fields[0], uint64(count))
+				metrics.Set(int32(epoch), metric, uint64(count))
 			}
 			if err := scanner.Err(); err != nil {
 				log.Printf("graphite server: error during scan: %v", err)
 			}
 		}(conn)
 	}
+}
+
+func isspace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n'
+}
+
+var errParseError = errors.New("graphite: parse error")
+
+func token(b []byte) ([]byte, []byte) {
+
+	if len(b) == 0 {
+		return nil, nil
+	}
+
+	// munch space
+	for isspace(b[0]) {
+		b = b[1:]
+	}
+
+	var i int
+	for i < len(b) && !isspace(b[i]) {
+		i++
+	}
+
+	return b[:i], b[i:]
+}
+
+func parseGraphite(b []byte) (metric string, count int, epoch int, err error) {
+
+	var tok []byte
+
+	tok, b = token(b)
+	if len(tok) == 0 {
+		return "", 0, 0, errParseError
+	}
+
+	metric = string(tok)
+
+	tok, b = token(b)
+	if len(tok) == 0 {
+		return "", 0, 0, errParseError
+	}
+
+	count, err = strconv.Atoi(string(tok))
+	if err != nil {
+		return "", 0, 0, errParseError
+	}
+
+	tok, b = token(b)
+	if len(tok) == 0 {
+		return "", 0, 0, errParseError
+	}
+
+	epoch, err = strconv.Atoi(string(tok))
+	if err != nil {
+		return "", 0, 0, errParseError
+	}
+
+	// check for extra stuff
+	tok, b = token(b)
+	if len(tok) != 0 || len(b) != 0 {
+		return "", 0, 0, errParseError
+	}
+
+	return metric, count, epoch, nil
 }
 
 type whispers struct {
