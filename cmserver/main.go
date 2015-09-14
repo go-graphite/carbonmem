@@ -173,6 +173,11 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	frint, _ := strconv.Atoi(from)
 	unint, _ := strconv.Atoi(until)
 
+	if unint < frint {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	if format != "json" && format != "protobuf" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
