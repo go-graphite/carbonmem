@@ -293,7 +293,7 @@ func token(b []byte) ([]byte, []byte) {
 	}
 
 	// munch space
-	for isspace(b[0]) {
+	for len(b) > 0 && isspace(b[0]) {
 		b = b[1:]
 	}
 
