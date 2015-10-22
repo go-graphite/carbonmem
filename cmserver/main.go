@@ -112,7 +112,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 		b, _ = json.Marshal(response)
 	case "protobuf":
 		w.Header().Set("Content-Type", "application/protobuf")
-		b, _ = proto.Marshal(&response)
+		b, _ = response.Marshal()
 	}
 	w.Write(b)
 }
@@ -240,7 +240,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		b, _ = json.Marshal(multi)
 	case "protobuf":
 		w.Header().Set("Content-Type", "application/protobuf")
-		b, _ = proto.Marshal(&multi)
+		b, _ = multi.Marshal()
 	}
 	w.Write(b)
 }
