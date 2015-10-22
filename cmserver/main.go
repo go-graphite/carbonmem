@@ -8,13 +8,10 @@ import (
 	"errors"
 	"expvar"
 	"flag"
-	"io"
-	"log"
 	"math"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,10 +19,10 @@ import (
 	"time"
 
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
+	"github.com/dgryski/carbonzipper/mlog"
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/dgryski/carbonmem"
-	"github.com/lestrrat/go-file-rotatelogs"
 )
 
 var BuildVersion = "(development build)"
@@ -37,6 +34,8 @@ var Metrics = struct {
 	FindRequests:  expvar.NewInt("findRequests"),
 	FetchRequests: expvar.NewInt("fetchRequests"),
 }
+
+var logger mlog.Level
 
 func parseTopK(query string) (string, int32, bool) {
 
@@ -250,15 +249,15 @@ func graphiteServer(port int) {
 	ln, e := net.Listen("tcp", ":"+strconv.Itoa(port))
 
 	if e != nil {
-		log.Fatal("listen error:", e)
+		logger.Fatalln("listen error:", e)
 	}
 
-	log.Println("graphite server starting on port", port)
+	logger.Logln("graphite server starting on port", port)
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println(err)
+			logger.Logln(err)
 			continue
 		}
 		go func(c net.Conn) {
@@ -274,7 +273,7 @@ func graphiteServer(port int) {
 				metrics.Set(int32(epoch), metric, uint64(count))
 			}
 			if err := scanner.Err(); err != nil {
-				log.Printf("graphite server: error during scan: %v", err)
+				logger.Logf("graphite server: error during scan: %v", err)
 			}
 		}(conn)
 	}
@@ -440,21 +439,14 @@ func main() {
 
 	flag.Parse()
 
-	rl := rotatelogs.NewRotateLogs(
-		*logdir + "/carbonmem.%Y%m%d%H%M.log",
-	)
+	mlog.SetOutput(*logdir, "carbonmem", *logtostdout)
 
-	// Optional fields must be set afterwards
-	rl.LinkName = *logdir + "/carbonmem.log"
-
-	if *logtostdout {
-		log.SetOutput(io.MultiWriter(os.Stdout, rl))
-	} else {
-		log.SetOutput(rl)
+	if *verbose {
+		logger = mlog.Level(mlog.Debug)
 	}
 
 	expvar.NewString("BuildVersion").Set(BuildVersion)
-	log.Println("starting carbonmem", BuildVersion)
+	logger.Logln("starting carbonmem", BuildVersion)
 
 	expvar.Publish("Whispers", expvar.Func(func() interface{} {
 		m := make(map[string]int)
@@ -475,8 +467,8 @@ func main() {
 	http.HandleFunc("/metrics/find/", accessHandler(*verbose, findHandler))
 	http.HandleFunc("/render/", accessHandler(*verbose, renderHandler))
 
-	log.Println("http server starting on port", *port)
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
+	logger.Logln("http server starting on port", *port)
+	logger.Fatalln(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
 }
 
 func accessHandler(verbose bool, handler http.HandlerFunc) http.HandlerFunc {
@@ -487,6 +479,6 @@ func accessHandler(verbose bool, handler http.HandlerFunc) http.HandlerFunc {
 		t0 := time.Now()
 		handler(w, r)
 		since := time.Since(t0)
-		log.Println(r.RequestURI, since.Nanoseconds()/int64(time.Millisecond))
+		logger.Logln(r.RequestURI, since.Nanoseconds()/int64(time.Millisecond))
 	}
 }
