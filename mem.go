@@ -1,4 +1,4 @@
-// memory-backed carbon store: speaks graphite in, zipper out
+// Package carbonmem is a memory-backed carbon store
 package carbonmem
 
 import (
@@ -13,7 +13,10 @@ import (
 	"github.com/wangjohn/quickselect"
 )
 
+// MetricID identifies a metric in the memory store
 type MetricID uint32
+
+// Count is the number of times a metric has been seen in a time period
 type Count uint32
 
 // Whisper is an in-memory whisper-like store
@@ -30,6 +33,7 @@ type Whisper struct {
 	l *lookup
 }
 
+// NewWhisper returns a new Whisper store
 func NewWhisper(t0 int32, ecap, cap int, options ...func(*Whisper) error) *Whisper {
 
 	t0 = t0 - (t0 % 60)
@@ -54,6 +58,7 @@ func NewWhisper(t0 int32, ecap, cap int, options ...func(*Whisper) error) *Whisp
 	return w
 }
 
+// TrigramCutoff sets percentage above which trigrams are removed from the search index
 func TrigramCutoff(cutoff int) func(*Whisper) error {
 	return func(w *Whisper) error {
 		w.l.trigramCutoff = cutoff
@@ -61,6 +66,7 @@ func TrigramCutoff(cutoff int) func(*Whisper) error {
 	}
 }
 
+// Set adds a metric at a given epoch with a given value
 func (w *Whisper) Set(t int32, metric string, val uint64) {
 
 	count := Count(val)
@@ -182,6 +188,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 	mm[id] += count - v
 }
 
+// Fetched is a response to a fetch request
 type Fetched struct {
 	From   int32
 	Until  int32
@@ -189,6 +196,7 @@ type Fetched struct {
 	Values []float64
 }
 
+// Fetch retrieves a metric between two given epochs
 func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 
 	w.RLock()
@@ -270,6 +278,7 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 	return r
 }
 
+// Glob is a response to a find query
 type Glob struct {
 	Metric string
 	IsLeaf bool
@@ -283,6 +292,7 @@ func (g globByName) Less(i, j int) bool { return g[i].Metric < g[j].Metric }
 
 // TODO(dgryski): this needs most of the logic in grobian/carbsonerver:findHandler()
 
+// Find expands a glob query across the metrics in the store
 func (w *Whisper) Find(query string) []Glob {
 
 	w.RLock()
@@ -355,6 +365,7 @@ func (k keysByCount) Len() int           { return len(k.keys) }
 func (k keysByCount) Swap(i, j int)      { k.keys[i], k.keys[j] = k.keys[j], k.keys[i] }
 func (k keysByCount) Less(i, j int) bool { return k.counts[k.keys[i]] > k.counts[k.keys[j]] }
 
+// TopK returns the top 100 metrics (by count over the preceding time period) matching the query prefix
 func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 
 	w.RLock()
@@ -427,6 +438,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	return response
 }
 
+// Len returns how many metrics are in the store
 func (w *Whisper) Len() int {
 	w.RLock()
 	l := w.l.Len()
