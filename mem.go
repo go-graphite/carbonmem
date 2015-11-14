@@ -113,7 +113,7 @@ func (w *Whisper) Set(t int32, metric string, val uint64) {
 				}
 
 				mm := w.minutes[w.midx]
-				for id, _ := range mm {
+				for id := range mm {
 					w.l.DelRef(id)
 				}
 				w.minutes[w.midx] = nil
@@ -400,7 +400,7 @@ func (w *Whisper) TopK(prefix string, seconds int32) []Glob {
 	}
 
 	var keys []MetricID
-	for k, _ := range counts {
+	for k := range counts {
 		keys = append(keys, k)
 	}
 
