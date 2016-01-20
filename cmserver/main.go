@@ -15,15 +15,14 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 	"github.com/dgryski/carbonzipper/mlog"
+	"github.com/dgryski/carbonzipper/mstats"
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/peterbourgon/g2g"
@@ -40,16 +39,6 @@ var Metrics = struct {
 	FindRequests:  expvar.NewInt("findRequests"),
 	FetchRequests: expvar.NewInt("fetchRequests"),
 }
-
-type atomicVar struct {
-	atomic.Value
-}
-
-func (a *atomicVar) String() string {
-	v := a.Load().(uint64)
-	return fmt.Sprintf("%d", v)
-}
-
 var logger mlog.Level
 
 func parseTopK(query string) (string, int32, bool) {
@@ -507,24 +496,11 @@ func main() {
 		graphite.Register(fmt.Sprintf("carbon.mem.%s.find_requests", hostname), Metrics.FindRequests)
 		graphite.Register(fmt.Sprintf("carbon.mem.%s.fetch_requests", hostname), Metrics.FetchRequests)
 
-		var pauseNS atomicVar
-		var numGC atomicVar
-		var alloc atomicVar
+		go mstats.Start(*interval)
 
-		go func() {
-			for range time.Tick(*interval) {
-				var m runtime.MemStats
-				runtime.ReadMemStats(&m)
-				pauseNS.Store(m.PauseTotalNs)
-				alloc.Store(m.Alloc)
-				numGC.Store(uint64(m.NumGC))
-			}
-		}()
-
-		graphite.Register(fmt.Sprintf("carbon.mem.%s.alloc", hostname), &alloc)
-		graphite.Register(fmt.Sprintf("carbon.mem.%s.num_gc", hostname), &numGC)
-		graphite.Register(fmt.Sprintf("carbon.mem.%s.pause_ns", hostname), &pauseNS)
-
+		graphite.Register(fmt.Sprintf("carbon.mem.%s.alloc", hostname), &mstats.Alloc)
+		graphite.Register(fmt.Sprintf("carbon.mem.%s.num_gc", hostname), &mstats.NumGC)
+		graphite.Register(fmt.Sprintf("carbon.mem.%s.pause_ns", hostname), &mstats.PauseNS)
 	}
 
 	go graphiteServer(*gport)
