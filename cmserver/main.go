@@ -8,10 +8,12 @@ import (
 	"errors"
 	"expvar"
 	"flag"
+	"fmt"
 	"math"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,6 +23,8 @@ import (
 	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
 	"github.com/dgryski/carbonzipper/mlog"
 	"github.com/gogo/protobuf/proto"
+
+	"github.com/peterbourgon/g2g"
 
 	"github.com/dgryski/carbonmem"
 )
@@ -436,6 +440,8 @@ func main() {
 	verbose := flag.Bool("v", false, "verbose logging")
 	logdir := flag.String("logdir", "/var/log/carbonmem/", "logging directory")
 	logtostdout := flag.Bool("stdout", false, "log also to stdout")
+	graphiteHost := flag.String("graphite", "", "graphite destination host")
+	interval := flag.Duration("interval", 60*time.Second, "interval to report internal statistics to graphite")
 
 	flag.Parse()
 
@@ -460,6 +466,35 @@ func main() {
 
 	if Whispers.epoch0 == 0 {
 		Whispers.epoch0 = int(time.Now().Unix())
+	}
+
+	if envhost := os.Getenv("GRAPHITEHOST") + ":" + os.Getenv("GRAPHITEPORT"); envhost != ":" || *graphiteHost != "" {
+
+		var host string
+
+		switch {
+		case envhost != ":" && *graphiteHost != "":
+			host = *graphiteHost
+		case envhost != ":":
+			host = envhost
+		case *graphiteHost != "":
+			host = *graphiteHost
+		}
+
+		logger.Logln("Using graphite host", host)
+		logger.Logln("setting stats interval to", *interval)
+
+		// register our metrics with graphite
+		graphite, err := g2g.NewGraphite(host, *interval, 10*time.Second)
+		if err != nil {
+			logger.Fatalln("unable to connect to to graphite: ", host, ":", err)
+		}
+
+		hostname, _ := os.Hostname()
+		hostname = strings.Replace(hostname, ".", "_", -1)
+
+		graphite.Register(fmt.Sprintf("carbon.mem.%s.find_requests", hostname), Metrics.FindRequests)
+		graphite.Register(fmt.Sprintf("carbon.mem.%s.fetch_requests", hostname), Metrics.FetchRequests)
 	}
 
 	go graphiteServer(*gport)
