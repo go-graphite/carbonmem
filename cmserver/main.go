@@ -211,9 +211,9 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 			continue
 		}
 
-		fromTime := int32(points.From)
-		untilTime := int32(points.Until)
-		step := int32(points.Step)
+		fromTime := points.From
+		untilTime := points.Until
+		step := points.Step
 		response := pb.FetchResponse{
 			Name:      &target,
 			StartTime: &fromTime,
@@ -448,7 +448,7 @@ func main() {
 	mlog.SetOutput(*logdir, "carbonmem", *logtostdout)
 
 	if *verbose {
-		logger = mlog.Level(mlog.Debug)
+		logger = mlog.Debug
 	}
 
 	expvar.NewString("BuildVersion").Set(BuildVersion)
