@@ -279,6 +279,7 @@ func graphiteServer(port int) {
 			if err := scanner.Err(); err != nil {
 				logger.Logf("graphite server: error during scan: %v", err)
 			}
+			c.Close()
 		}(conn)
 	}
 }
