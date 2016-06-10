@@ -446,7 +446,11 @@ func main() {
 
 	flag.Parse()
 
-	mlog.SetOutput(*logdir, "carbonmem", *logtostdout)
+	if *logdir == "" {
+		mlog.SetRawStream(os.Stdout)
+	} else {
+		mlog.SetOutput(*logdir, "carbonmem", *logtostdout)
+	}
 
 	if *verbose {
 		logger = mlog.Debug
