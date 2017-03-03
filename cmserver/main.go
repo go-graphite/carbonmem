@@ -20,10 +20,9 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
+	pb "github.com/dgryski/carbonzipper/carbonzipperpb3"
 	"github.com/dgryski/carbonzipper/mlog"
 	"github.com/dgryski/carbonzipper/mstats"
-	"github.com/gogo/protobuf/proto"
 
 	"github.com/peterbourgon/g2g"
 
@@ -96,7 +95,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	query := req.FormValue("query")
 	format := req.FormValue("format")
 
-	if format != "json" && format != "protobuf" {
+	if format != "json" && format != "protobuf3" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -104,7 +103,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	matches := findMetrics(query)
 
 	response := pb.GlobResponse{
-		Name:    &query,
+		Name:    query,
 		Matches: matches,
 	}
 
@@ -113,7 +112,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	case "json":
 		w.Header().Set("Content-Type", "application/json")
 		b, _ = json.Marshal(response)
-	case "protobuf":
+	case "protobuf3":
 		w.Header().Set("Content-Type", "application/protobuf")
 		b, _ = response.Marshal()
 	}
@@ -153,8 +152,8 @@ func findMetrics(query string) []*pb.GlobMatch {
 		metric := g.Metric + topk
 		if _, ok := paths[metric]; !ok {
 			m := pb.GlobMatch{
-				Path:   proto.String(g.Metric + topk),
-				IsLeaf: proto.Bool(g.IsLeaf),
+				Path:   metric,
+				IsLeaf: g.IsLeaf,
 			}
 			matches = append(matches, &m)
 			paths[metric] = struct{}{}
@@ -181,7 +180,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if format != "json" && format != "protobuf" {
+	if format != "json" && format != "protobuf3" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -215,10 +214,10 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		untilTime := points.Until
 		step := points.Step
 		response := pb.FetchResponse{
-			Name:      &target,
-			StartTime: &fromTime,
-			StopTime:  &untilTime,
-			StepTime:  &step,
+			Name:      target,
+			StartTime: fromTime,
+			StopTime:  untilTime,
+			StepTime:  step,
 			Values:    make([]float64, len(points.Values)),
 			IsAbsent:  make([]bool, len(points.Values)),
 		}
@@ -241,7 +240,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	case "json":
 		w.Header().Set("Content-Type", "application/json")
 		b, _ = json.Marshal(multi)
-	case "protobuf":
+	case "protobuf3":
 		w.Header().Set("Content-Type", "application/protobuf")
 		b, _ = multi.Marshal()
 	}
