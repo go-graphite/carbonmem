@@ -253,6 +253,10 @@ func (w *Whisper) Fetch(metric string, from int32, until int32) *Fetched {
 
 	points := (until - from + step) / step // inclusive of 'until'
 
+	if points < 0 {
+		return nil
+	}
+
 	r := &Fetched{
 		From:   from,
 		Until:  until,
