@@ -20,9 +20,9 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/dgryski/carbonzipper/carbonzipperpb3"
-	"github.com/dgryski/carbonzipper/mlog"
-	"github.com/dgryski/carbonzipper/mstats"
+	pb "github.com/go-graphite/carbonzipper/carbonzipperpb3"
+	"github.com/go-graphite/carbonzipper/mlog"
+	"github.com/go-graphite/carbonzipper/mstats"
 
 	"github.com/peterbourgon/g2g"
 

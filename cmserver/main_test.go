@@ -12,8 +12,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/dgryski/carbonmem"
-	pb "github.com/dgryski/carbonzipper/carbonzipperpb"
+	"github.com/go-graphite/carbonmem"
+	pb "github.com/go-graphite/carbonzipper/carbonzipperpb"
 )
 
 func TestParseTopK(t *testing.T) {
