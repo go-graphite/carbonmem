@@ -26,7 +26,7 @@ import (
 
 	"github.com/peterbourgon/g2g"
 
-	"github.com/dgryski/carbonmem"
+	"github.com/go-graphite/carbonmem/mwhisper"
 )
 
 var BuildVersion = "(development build)"
@@ -126,7 +126,7 @@ func hasMetaCharacters(query string) bool {
 func findMetrics(query string) []*pb.GlobMatch {
 	var topk string
 
-	var globs []carbonmem.Glob
+	var globs []mwhisper.Glob
 
 	if strings.Count(query, ".") < Whispers.prefix {
 		globs = Whispers.Glob(query)
@@ -350,7 +350,7 @@ func parseGraphite(b []byte) (metric string, count int, epoch int, err error) {
 
 type whispers struct {
 	sync.RWMutex
-	metrics map[string]*carbonmem.Whisper
+	metrics map[string]*mwhisper.Whisper
 
 	windowSize int
 	epochSize  int
@@ -374,7 +374,7 @@ func findNodePrefix(prefix int, metric string) string {
 	return metric
 }
 
-func (w *whispers) FetchOrCreate(metric string) *carbonmem.Whisper {
+func (w *whispers) FetchOrCreate(metric string) *mwhisper.Whisper {
 
 	m := w.Fetch(metric)
 
@@ -384,7 +384,7 @@ func (w *whispers) FetchOrCreate(metric string) *carbonmem.Whisper {
 		w.Lock()
 		m, ok = w.metrics[prefix]
 		if !ok {
-			m = carbonmem.NewWhisper(int32(w.epoch0), w.epochSize, w.windowSize, carbonmem.TrigramCutoff(100000))
+			m = mwhisper.NewWhisper(int32(w.epoch0), w.epochSize, w.windowSize, mwhisper.TrigramCutoff(100000))
 			w.metrics[prefix] = m
 		}
 		w.Unlock()
@@ -393,7 +393,7 @@ func (w *whispers) FetchOrCreate(metric string) *carbonmem.Whisper {
 	return m
 }
 
-func (w *whispers) Fetch(metric string) *carbonmem.Whisper {
+func (w *whispers) Fetch(metric string) *mwhisper.Whisper {
 	prefix := findNodePrefix(w.prefix, metric)
 
 	w.RLock()
@@ -403,13 +403,13 @@ func (w *whispers) Fetch(metric string) *carbonmem.Whisper {
 	return m
 }
 
-func (w *whispers) Glob(query string) []carbonmem.Glob {
+func (w *whispers) Glob(query string) []mwhisper.Glob {
 
 	query = strings.Replace(query, ".", "/", -1)
 	slashes := strings.Count(query, "/")
 
 	w.RLock()
-	var glob []carbonmem.Glob
+	var glob []mwhisper.Glob
 	for m := range w.metrics {
 		qm := strings.Replace(m, ".", "/", slashes)
 		if trim := strings.Index(qm, "."); trim != -1 {
@@ -417,7 +417,7 @@ func (w *whispers) Glob(query string) []carbonmem.Glob {
 			m = m[:trim]
 		}
 		if match, err := filepath.Match(query, qm); err == nil && match {
-			glob = append(glob, carbonmem.Glob{Metric: m})
+			glob = append(glob, mwhisper.Glob{Metric: m})
 		}
 	}
 
@@ -428,7 +428,7 @@ func (w *whispers) Glob(query string) []carbonmem.Glob {
 
 func main() {
 
-	Whispers.metrics = make(map[string]*carbonmem.Whisper)
+	Whispers.metrics = make(map[string]*mwhisper.Whisper)
 
 	flag.IntVar(&Whispers.windowSize, "w", 600, "window size")
 	flag.IntVar(&Whispers.epochSize, "e", 60, "epoch window size")

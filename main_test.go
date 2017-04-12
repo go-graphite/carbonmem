@@ -12,7 +12,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-graphite/carbonmem"
+	"github.com/go-graphite/carbonmem/mwhisper"
 	pb "github.com/go-graphite/carbonzipper/carbonzipperpb"
 )
 
@@ -52,7 +52,7 @@ func TestParseTopK(t *testing.T) {
 
 func TestTopKFind(t *testing.T) {
 
-	metrics := carbonmem.NewWhisper(120, 60, 600)
+	metrics := mwhisper.NewWhisper(120, 60, 600)
 
 	for _, m := range []struct {
 		epoch  int32
@@ -72,7 +72,7 @@ func TestTopKFind(t *testing.T) {
 		metrics.Set(m.epoch, m.metric, m.count)
 	}
 
-	Whispers.metrics = map[string]*carbonmem.Whisper{"foo": metrics}
+	Whispers.metrics = map[string]*mwhisper.Whisper{"foo": metrics}
 
 	for _, tt := range []struct {
 		query string
@@ -131,7 +131,7 @@ func TestTopKFind(t *testing.T) {
 
 func TestTopKRender(t *testing.T) {
 
-	metrics := carbonmem.NewWhisper(100, 10, 60)
+	metrics := mwhisper.NewWhisper(100, 10, 60)
 
 	for _, m := range []struct {
 		epoch  int32
@@ -151,7 +151,7 @@ func TestTopKRender(t *testing.T) {
 		metrics.Set(m.epoch, m.metric, m.count)
 	}
 
-	Whispers.metrics = map[string]*carbonmem.Whisper{"foo": metrics}
+	Whispers.metrics = map[string]*mwhisper.Whisper{"foo": metrics}
 
 	for _, tt := range []struct {
 		target string
@@ -229,7 +229,7 @@ func TestNodePrefix(t *testing.T) {
 func TestWhisperGlob(t *testing.T) {
 
 	var whispers = whispers{
-		metrics: map[string]*carbonmem.Whisper{
+		metrics: map[string]*mwhisper.Whisper{
 			"foo.bar.baz.qux": nil,
 			"foo.bar.boz.qux": nil,
 			"foo.bar.baz.zot": nil,

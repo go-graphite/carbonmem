@@ -1,4 +1,4 @@
-package carbonmem
+package mwhisper
 
 import (
 	"math"

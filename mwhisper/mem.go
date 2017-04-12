@@ -1,5 +1,5 @@
 // Package carbonmem is a memory-backed carbon store
-package carbonmem
+package mwhisper
 
 import (
 	"math"
