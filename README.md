@@ -1,6 +1,8 @@
 carbonmem: memory-backed carbon store
 =================================================
 
+<a href="https://packagecloud.io/"><img alt="Private Maven, RPM, DEB, PyPi and RubyGem Repository | packagecloud" height="46" src="https://packagecloud.io/images/packagecloud-badge.png" width="158" /></a>
+
 Optimized to answer to topK kind of queries.
 
 Other pieces of the stack are:

@@ -13,13 +13,16 @@ Changes
 
 CHANGELOG
 ---------
+**0.6.1**
+ - [Fix] Fix panic on bad queries
+ - [Improvement] Introduce vendoring and Makefile
 
-**0.6.0**
+**0.6**
  - **[Breaking]** Migrate to protobuf3
 
 Notes on upgrading to 0.6.0:
 
 You need to upgrade carbonzipper or go-carbon to the version that supports protobuf3
 
-**<0.6.0**
+**<=0.5**
 There is no dedicated changelog for older versions of carbonmem. Please see commit log for more information about what changed for each commit.
