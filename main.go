@@ -95,7 +95,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	query := req.FormValue("query")
 	format := req.FormValue("format")
 
-	if format != "json" && format != "protobuf3" {
+	if format != "json" && format != "protobuf3" && format != "protobuf" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -112,7 +112,7 @@ func findHandler(w http.ResponseWriter, req *http.Request) {
 	case "json":
 		w.Header().Set("Content-Type", "application/json")
 		b, _ = json.Marshal(response)
-	case "protobuf3":
+	case "protobuf", "protobuf3":
 		w.Header().Set("Content-Type", "application/protobuf")
 		b, _ = response.Marshal()
 	}
@@ -180,7 +180,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if format != "json" && format != "protobuf3" {
+	if format != "json" && format != "protobuf3" && format != "protobuf" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -240,7 +240,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 	case "json":
 		w.Header().Set("Content-Type", "application/json")
 		b, _ = json.Marshal(multi)
-	case "protobuf3":
+	case "protobuf", "protobuf3":
 		w.Header().Set("Content-Type", "application/protobuf")
 		b, _ = multi.Marshal()
 	}

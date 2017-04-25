@@ -13,6 +13,9 @@ Changes
 
 CHANGELOG
 ---------
+**Master**
+ - [Fix] Make it compatible with both pb2 and pb3. Incompatibility was introduced in 0.6
+
 **0.6.1**
  - [Fix] Fix panic on bad queries
  - [Improvement] Introduce vendoring and Makefile
