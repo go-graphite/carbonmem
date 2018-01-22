@@ -13,8 +13,10 @@ Changes
 
 CHANGELOG
 ---------
-**Master**
+**0.7**
  - [Fix] Make it compatible with both pb2 and pb3. Incompatibility was introduced in 0.6
+ - [Fix] Make it compatible with recent carbonzipper definitions
+ - [Code] commit vendored dependencies
 
 **0.6.1**
  - [Fix] Fix panic on bad queries
