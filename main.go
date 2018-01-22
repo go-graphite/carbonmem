@@ -123,7 +123,7 @@ func hasMetaCharacters(query string) bool {
 	return strings.IndexByte(query, '*') != -1 || strings.IndexByte(query, '[') != -1 || strings.IndexByte(query, '?') != -1
 }
 
-func findMetrics(query string) []*pb.GlobMatch {
+func findMetrics(query string) []pb.GlobMatch {
 	var topk string
 
 	var globs []mwhisper.Glob
@@ -145,7 +145,7 @@ func findMetrics(query string) []*pb.GlobMatch {
 		}
 	}
 
-	var matches []*pb.GlobMatch
+	var matches []pb.GlobMatch
 	paths := make(map[string]struct{}, len(globs))
 	for _, g := range globs {
 		// fix up metric name
@@ -155,7 +155,7 @@ func findMetrics(query string) []*pb.GlobMatch {
 				Path:   metric,
 				IsLeaf: g.IsLeaf,
 			}
-			matches = append(matches, &m)
+			matches = append(matches, m)
 			paths[metric] = struct{}{}
 		}
 	}
@@ -232,7 +232,7 @@ func renderHandler(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		multi.Metrics = append(multi.Metrics, &response)
+		multi.Metrics = append(multi.Metrics, response)
 	}
 
 	var b []byte
