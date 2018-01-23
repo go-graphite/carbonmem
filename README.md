@@ -27,6 +27,14 @@ For example with protobuf2 -> protobuf3 migration - carbonzipper can still send 
 
 See [CHANGES.md](https://github.com/go-graphite/carbonmem/blob/master/CHANGES.md)
 
+
+Work scheme
+-----------
+
+![carbonmem.png](doc/carbonmem.png)
+
+Gray components are optional or alternative
+
 Acknowledgement
 ---------------
 This program was originally developed for Booking.com.  With approval
