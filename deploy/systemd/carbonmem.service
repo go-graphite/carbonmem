@@ -1,0 +1,15 @@
+[Unit]
+Description=carbonmem - in-memory carbon-like store provides topK values
+After=syslog.target network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/sysconfig/carbonmem
+ExecStart=/usr/bin/carbonmem $CARBONMEM_ARGS
+PIDFile=/var/run/carbonmem/carbonmem.pid
+LimitNOFILE=200000
+RuntimeDirectory=carbonmem
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

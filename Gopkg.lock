@@ -20,14 +20,29 @@
   revision = "79ec494e1ad015aca936154d0eacd715623c1b40"
 
 [[projects]]
+  name = "github.com/go-graphite/carbonmem"
+  packages = ["mwhisper"]
+  revision = "75e820b6366ec7785df9a9877270ea10afd7fd95"
+  version = "0.7"
+
+[[projects]]
   name = "github.com/go-graphite/carbonzipper"
-  packages = ["carbonzipperpb","carbonzipperpb3","mlog","mstats"]
+  packages = [
+    "carbonzipperpb",
+    "carbonzipperpb3",
+    "mlog",
+    "mstats"
+  ]
   revision = "b7a336de4671b6474a5eadb306ab709b5a840c2f"
   version = "0.73.2"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
-  packages = ["gogoproto","proto","protoc-gen-gogo/descriptor"]
+  packages = [
+    "gogoproto",
+    "proto",
+    "protoc-gen-gogo/descriptor"
+  ]
   revision = "100ba4e885062801d56799d78530b73b178a78f3"
   version = "v0.4"
 
@@ -64,6 +79,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6765d2f25c17d340773d03743d35cfdca9bee0371f0fc1415963ed57fb8aa8a0"
+  inputs-digest = "7f523130c1901e30b9dff9d8e7eb7ec5f521f9bb571ea108a322ee3661fb878a"
   solver-name = "gps-cdcl"
   solver-version = 1

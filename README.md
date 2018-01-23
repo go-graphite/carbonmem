@@ -27,6 +27,41 @@ For example with protobuf2 -> protobuf3 migration - carbonzipper can still send 
 
 See [CHANGES.md](https://github.com/go-graphite/carbonmem/blob/master/CHANGES.md)
 
+
+Work scheme
+-----------
+
+![carbonmem.png](doc/carbonmem.png)
+
+Gray components are optional or alternative
+
+
+Build
+-----
+
+Required golang 1.7+
+
+```sh
+# build binary
+git clone https://github.com/go-graphite/carbonmem.git
+cd carbonmem
+make dep
+make
+```
+
+
+Usage
+-----
+
+The service accept only following types of requests:
+
+```toml
+path.to.your.metrics.for.top.*.TopK.10m
+```
+
+The asterisk must be in metrics path. Usage of asterisk at any node of the tree are permitted.
+
+
 Acknowledgement
 ---------------
 This program was originally developed for Booking.com.  With approval
