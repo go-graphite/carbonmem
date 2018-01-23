@@ -50,6 +50,18 @@ make
 ```
 
 
+Usage
+-----
+
+The service accept only following types of requests:
+
+```toml
+path.to.your.metrics.for.top.*.TopK.10m
+```
+
+The asterisk must be in metrics path. Usage of asterisk at any node of the tree are permitted.
+
+
 Acknowledgement
 ---------------
 This program was originally developed for Booking.com.  With approval
