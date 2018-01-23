@@ -35,6 +35,21 @@ Work scheme
 
 Gray components are optional or alternative
 
+
+Build
+-----
+
+Required golang 1.7+
+
+```sh
+# build binary
+git clone https://github.com/go-graphite/carbonmem.git
+cd carbonmem
+make dep
+make
+```
+
+
 Acknowledgement
 ---------------
 This program was originally developed for Booking.com.  With approval
